@@ -1,0 +1,10 @@
+{
+  "name": "winhacks22-bot",
+  "version": "1.0.0",
+  "description": "Discord.JS Bot for Winhacks 2022",
+  "main": "index.js",
+  "repository": "git@github.com:WinHacks/2022-bot.git",
+  "author": "kilbouri <kilbouri@uwindsor.ca>",
+  "license": "MIT",
+  "private": false
+}
