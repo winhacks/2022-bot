@@ -1,10 +1,43 @@
 {
-  "name": "winhacks22-bot",
-  "version": "1.0.0",
-  "description": "Discord.JS Bot for Winhacks 2022",
-  "main": "index.js",
-  "repository": "git@github.com:WinHacks/2022-bot.git",
-  "author": "kilbouri <kilbouri@uwindsor.ca>",
-  "license": "MIT",
-  "private": false
+    "name": "winhacks22-bot",
+    "version": "1.0.0",
+    "description": "Discord.JS Bot for Winhacks 2022",
+    "main": "index.ts",
+    "repository": "git@github.com:WinHacks/2022-bot.git",
+    "author": "kilbouri <kilbouri@uwindsor.ca>",
+    "license": "MIT",
+    "private": false,
+    "scripts": {
+        "start": "ts-node ./src/index.ts"
+    },
+    "prettier": {
+        "tabWidth": 4,
+        "useTabs": false,
+        "semi": true,
+        "singleQuote": false,
+        "quoteProps": "as-needed",
+        "trailingComma": "es5",
+        "bracketSpacing": false,
+        "arrowParens": "always",
+        "endOfLine": "lf",
+        "printWidth": 100
+    },
+    "eslintConfig": {
+        "node": true,
+        "es6": true
+    },
+    "devDependencies": {
+        "@tsconfig/node16": "^1.0.2",
+        "ts-node": "^10.4.0",
+        "typescript": "^4.5.2"
+    },
+    "dependencies": {
+        "@discordjs/builders": "^0.11.0",
+        "@discordjs/rest": "^0.2.0-canary.0",
+        "@types/node": "^17.0.8",
+        "discord.js": "^13.5.0",
+        "googleapis": "^92.0.0",
+        "pino": "^7.6.2",
+        "readline": "^1.3.0"
+    }
 }

@@ -1,0 +1,26 @@
+{
+  "api_token": "",
+  "app_id": "",
+  "api_version": "9",
+  "bot_uid": 8,
+  "dev_mode": false,
+  "dev_guild": "",
+  "prod_guild": "",
+  "bot_info": {
+    "name": "Example Bot Name",
+    "color": "#14c3a2",
+    "title_url": "Example Bot Repo Link",
+    "thumbnail": "https://example.bot.thumbnail.link",
+    "description": "Your amazing description here"
+  },
+  "verify": {
+    "target_sheet": ""
+  },
+  "sheets_api": {
+    "scopes": [
+      "https://www.googleapis.com/auth/spreadsheets.readonly"
+    ],
+    "private_key": "SUPER DUPER SECRET PRIVATE KEY DO NOT SHARE THIS WITH ANYONE",
+    "client_email": "client.email@service.iam.gserviceaccount.com"
+  }
+}
