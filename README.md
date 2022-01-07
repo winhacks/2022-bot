@@ -4,6 +4,16 @@ Bot for WinHacks 2022, written in Typescript with Discord.JS.
 
 ## Configuration
 
+To start, copy `config.json.example` to `config.json`.
+
+```bash
+# Mac/Linux: 
+cp config.json.example config.json
+
+# Windows: 
+copy config.json.example config.json
+```
+
 **Reminder:** do not under *any* circumstances commit the `config.json` file to version control. It more than like contains secret information that you *really* should keep secret.
 
 ### Discord API Configuration
