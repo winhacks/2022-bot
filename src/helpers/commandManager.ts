@@ -31,6 +31,6 @@ export const RegisterCommands = async (
         guildCache.set(registered.name, registered.id);
     }
 
-    logger.info(`Registered ${response.length} commands for guild "${guildId}"`);
+    logger.info(`Registered ${response.length} commands for guild ${guildId}`);
     return response.length;
 };

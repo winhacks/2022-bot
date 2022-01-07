@@ -41,3 +41,5 @@ Helpful links:
 
 #### Verify
  - `target_sheet`: the ID of the spreadsheet to use for verification. It will need to be shared with the service worker account. You can find the ID in the sheet URL: `https://docs.google.com/spreadsheets/d/**SHEET_ID_HERE**/edit`.
+ - `email_column`: the column in the `target_sheet` that contains emails to verify users against. Must be a single letter.
+ - `verified_role_name`: the display name of the role to give verified users.

@@ -11,6 +11,8 @@ type ConfigType = {
     prod_guild: string;
     verify: {
         target_sheet: string;
+        email_column: string;
+        verified_role_name: string;
     };
     bot_info: {
         name: string;
@@ -28,13 +30,12 @@ type ConfigType = {
 
 let Config: ConfigType;
 
-const LoadConfig = (file: string) => {
+const LoadConfig = async (file: string) => {
     const data = readFileSync(file, "utf-8");
     Config = JSON.parse(data) as ConfigType;
 
-    if (Config.dev_mode) {
-        logger.info(Config);
-    }
+    logger.level = Config.dev_mode ? "debug" : "info";
+    logger.debug(Config);
 };
 
 export {Config, LoadConfig, ConfigType};

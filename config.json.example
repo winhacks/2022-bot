@@ -14,7 +14,9 @@
     "description": "Your amazing description here"
   },
   "verify": {
-    "target_sheet": ""
+    "target_sheet": "",
+    "email_column": "A",
+    "verified_role_name": "Verified"
   },
   "sheets_api": {
     "scopes": [
