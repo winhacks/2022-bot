@@ -5,7 +5,7 @@ import {CommandType} from "../types";
 const pingModule: CommandType = {
     data: NamedCommand("ping", "Ping. Pong?"),
     execute: async (intr: CommandInteraction<CacheType>) => {
-        intr.reply("Pong!");
+        return intr.reply("Pong!");
     },
 };
 

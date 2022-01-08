@@ -6,6 +6,18 @@
   "dev_mode": false,
   "dev_guild": "",
   "prod_guild": "",
+  "sheets_api": {
+    "scopes": [
+      "https://www.googleapis.com/auth/spreadsheets.readonly"
+    ],
+    "private_key": "SUPER DUPER SECRET PRIVATE KEY DO NOT SHARE THIS WITH ANYONE",
+    "client_email": "client.email@service.iam.gserviceaccount.com"
+  },
+  "mongo_db": {
+    "database_url": "",
+    "certificate": "PEM-formatted certificate! DO NOT SHARE WITH ANYONE, NOT EVEN THE COOKIE MONSTER!",
+    "private_key": "PEM-formatted private key! DO NOT SHARE WITH ANYONE, NOT EVEN THE COOKIE MONSTER!"
+  },
   "bot_info": {
     "name": "Example Bot Name",
     "color": "#14c3a2",
@@ -18,11 +30,9 @@
     "email_column": "A",
     "verified_role_name": "Verified"
   },
-  "sheets_api": {
-    "scopes": [
-      "https://www.googleapis.com/auth/spreadsheets.readonly"
-    ],
-    "private_key": "SUPER DUPER SECRET PRIVATE KEY DO NOT SHARE THIS WITH ANYONE",
-    "client_email": "client.email@service.iam.gserviceaccount.com"
+  "teams": {
+    "database_name": "your db name here",
+    "collection_name": "teams",
+    "max_name_length": 20
   }
 }

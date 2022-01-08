@@ -5,7 +5,7 @@ import {NamedCommand} from "../helpers/commands";
 import {CommandType} from "../types";
 
 const infoModule: CommandType = {
-    data: NamedCommand("aboutme", "See information about the bot and its developer."),
+    data: NamedCommand("about", "See information about the bot and its developer."),
     execute: function (interaction: CommandInteraction<CacheType>) {
         const embed = new MessageEmbed()
             .setTitle(Config.bot_info.name)

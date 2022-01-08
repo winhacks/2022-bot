@@ -1,13 +1,13 @@
 import {CacheType, Client, Collection, Intents, Interaction} from "discord.js";
 import {ClientType, CommandType} from "./types";
 import {Config, LoadConfig} from "./config";
-
 import {RegisterCommands} from "./helpers/commandManager";
 import {logger} from "./logger";
 import path from "path";
 import {readdirSync} from "fs";
 import {AuthenticateGoogleAPI} from "./helpers/sheetsAPI";
 import {safeReply} from "./helpers/responses";
+import {AuthenticateMongo} from "./helpers/mongoDB";
 
 const start = async () => {
     /*
@@ -22,6 +22,7 @@ const start = async () => {
 
     await client.login(Config.api_token);
     await AuthenticateGoogleAPI();
+    await AuthenticateMongo();
 
     /**
      * Load commands
@@ -52,18 +53,21 @@ const start = async () => {
      * Interaction handler
      */
     client.on("interactionCreate", async (intr: Interaction<CacheType>) => {
+        const errRes = {
+            content: "There was an error while executing this command.",
+            ephemeral: true,
+        };
+
         // command dispatcher
         if (intr.isCommand()) {
             const command = client.commands.get(intr.commandName) as CommandType;
+            if (!command) safeReply(intr, errRes);
 
             try {
                 await command.execute(intr);
             } catch (error) {
                 logger.error(error);
-                safeReply(intr, {
-                    content: "There was an error while executing this command.",
-                    ephemeral: true,
-                });
+                safeReply(intr, errRes);
             }
         }
     });
@@ -72,20 +76,27 @@ const start = async () => {
 };
 
 const stop = async () => {
-    logger.info("Exiting...");
+    let numReg;
 
     // unregister commands
     if (Config.dev_mode && Config.dev_guild) {
-        await RegisterCommands([], Config.dev_guild);
+        numReg = await RegisterCommands([], Config.dev_guild);
     } else {
-        await RegisterCommands([], Config.prod_guild);
+        numReg = await RegisterCommands([], Config.prod_guild);
     }
+
+    logger.info(`${numReg}Commands unregistered.`);
 };
+
+process.on("exit", async () => {
+    console.log("Exiting...");
+    await stop();
+    process.exit();
+});
 
 // node ignores sigint for some reason, lets add a listener that kills the bot
 process.on("SIGINT", async (sig) => {
-    await stop();
-    process.kill(1, sig);
+    process.exit();
 });
 
 // start bot
