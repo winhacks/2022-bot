@@ -38,3 +38,12 @@ export const SimpleTextEmbed = (
     if (color) embed.setColor(Number.parseInt(color.slice(1), 16));
     return embed;
 };
+
+export const SimpleTextResponse = (
+    title: string,
+    description: string,
+    thumbnail: string | undefined = Config.bot_info.thumbnail,
+    color: string | undefined = Config.bot_info.color
+) => {
+    return {embeds: [SimpleTextEmbed(title, description, thumbnail, color)]};
+};
