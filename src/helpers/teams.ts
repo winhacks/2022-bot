@@ -26,7 +26,6 @@ export type TeamType = {
     name: string;
     stdName: string;
     owner: string;
-    creationTimestamp: number;
     textChannel: string;
     voiceChannel: string;
     members: string[];
@@ -139,7 +138,6 @@ export const PutTeam = async (
         name: teamName,
         stdName: teamName.replaceAll(" ", "-"),
         owner: ownerId,
-        creationTimestamp: Math.floor(new Date().getTime() / 1000),
         textChannel: textChannel,
         voiceChannel: voiceChannel,
         members: members ? members : [],
