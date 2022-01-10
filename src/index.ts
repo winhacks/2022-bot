@@ -6,15 +6,12 @@ import {logger} from "./logger";
 import path from "path";
 import {readdirSync} from "fs";
 import {AuthenticateGoogleAPI} from "./helpers/sheetsAPI";
-import {safeReply} from "./helpers/responses";
+import {SafeReply} from "./helpers/responses";
 import {AuthenticateMongo} from "./helpers/mongoDB";
 
-const start = async () => {
-    /*
-     * Config loading, client(s) setup
-     */
-    LoadConfig("config.json");
+LoadConfig("config.json");
 
+const start = async () => {
     const client = new Client({
         intents: [Intents.FLAGS.GUILDS],
     }) as ClientType;
@@ -60,14 +57,16 @@ const start = async () => {
 
         // command dispatcher
         if (intr.isCommand()) {
+            await intr.deferReply();
+
             const command = client.commands.get(intr.commandName) as CommandType;
-            if (!command) safeReply(intr, errRes);
+            if (!command) SafeReply(intr, errRes);
 
             try {
                 await command.execute(intr);
             } catch (error) {
                 logger.error(error);
-                safeReply(intr, errRes);
+                SafeReply(intr, errRes);
             }
         }
     });
@@ -75,26 +74,7 @@ const start = async () => {
     logger.info(`Bot setup has finished: ${numReg} commands registered.`);
 };
 
-const stop = async () => {
-    let numReg;
-
-    // unregister commands
-    if (Config.dev_mode && Config.dev_guild) {
-        numReg = await RegisterCommands([], Config.dev_guild);
-    } else {
-        numReg = await RegisterCommands([], Config.prod_guild);
-    }
-
-    logger.info(`${numReg}Commands unregistered.`);
-};
-
-process.on("exit", async () => {
-    console.log("Exiting...");
-    await stop();
-    process.exit();
-});
-
-// node ignores sigint for some reason, lets add a listener that kills the bot
+// node ignores sigint for some reason
 process.on("SIGINT", async (sig) => {
     process.exit();
 });

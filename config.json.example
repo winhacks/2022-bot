@@ -32,7 +32,6 @@
   },
   "teams": {
     "database_name": "your db name here",
-    "collection_name": "teams",
     "max_name_length": 20
   }
 }

@@ -35,17 +35,26 @@ type ConfigType = {
     // teams command group config
     teams: {
         database_name: string;
-        collection_name: string;
         max_name_length: number;
+        teams_per_category: number;
+        category_base_name: string;
     };
 
     // info command config
     bot_info: {
         name: string;
-        color?: string;
+        color: string;
         title_url?: string;
         thumbnail?: string;
         description: string;
+        embedColor: number;
+    };
+
+    socials: {
+        facebook?: string;
+        twitter?: string;
+        instagram?: string;
+        linkedIn?: string;
     };
 };
 
@@ -54,6 +63,8 @@ let Config: ConfigType;
 const LoadConfig = (file: string) => {
     const data = readFileSync(file, "utf-8");
     Config = JSON.parse(data) as ConfigType;
+
+    Config.bot_info.embedColor = Number.parseInt(Config.bot_info.color.slice(1), 16);
 
     logger.level = Config.dev_mode ? "debug" : "info";
     logger.debug(Config);

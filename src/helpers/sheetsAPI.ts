@@ -16,7 +16,7 @@ export const AuthenticateGoogleAPI = async () => {
     google.options({auth: client});
 };
 
-export const buildRange = (sheetNumber: number, startCell: string, endCell: string) => {
+export const BuildRange = (sheetNumber: number, startCell: string, endCell: string) => {
     return `Sheet${sheetNumber}!${startCell}:${endCell}`;
 };
 
@@ -27,7 +27,11 @@ export const buildRange = (sheetNumber: number, startCell: string, endCell: stri
  * @param major the major dimension. When ROWS, the data is returned as an array of rows (cols => array of cols)
  * @returns a response from the Sheets API containing the data
  */
-export const getRange = async (target: string, range: string, major: MajorDimension = "ROWS") =>
+export const GetRange = async (
+    target: string,
+    range: string,
+    major: MajorDimension = "ROWS"
+) =>
     sheets.values.get({
         spreadsheetId: target,
         range: range,
@@ -41,13 +45,13 @@ export const getRange = async (target: string, range: string, major: MajorDimens
  * @param page an optional number, specifying the page number of the `target` to read from
  * @returns a string array of the data in column `col` of `target`'s page `page`
  */
-export const getColumn = async (
+export const GetColumn = async (
     target: string,
     col: string,
     page: number = 1
 ): Promise<string[]> => {
-    const range = buildRange(page, col, col);
-    return (await getRange(target, range, "COLUMNS")).data.values![0];
+    const range = BuildRange(page, col, col);
+    return (await GetRange(target, range, "COLUMNS")).data.values![0];
 };
 
 /**
@@ -57,11 +61,11 @@ export const getColumn = async (
  * @param page an optional number, specifying the page number of the `target` to read from
  * @returns a string array of the data in row `row` of `target`'s page `page`
  */
-export const getRow = async (
+export const GetRow = async (
     target: string,
     row: number | string,
     page: number = 1
 ): Promise<string[]> => {
-    const range = buildRange(page, `${row}`, `${row}`);
-    return (await getRange(target, range, "ROWS")).data.values![0];
+    const range = BuildRange(page, `${row}`, `${row}`);
+    return (await GetRange(target, range, "ROWS")).data.values![0];
 };

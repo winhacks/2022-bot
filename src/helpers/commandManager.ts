@@ -19,7 +19,10 @@ export const RegisterCommands = async (
             : Routes.applicationGuildCommands(Config.app_id, guildId);
 
     const cmdArr = commands.map((command) => command.data.toJSON());
-    const response = (await rest.put(route, {body: cmdArr})) as {id: string; name: string}[];
+    const response = (await rest.put(route, {body: cmdArr})) as {
+        id: string;
+        name: string;
+    }[];
 
     let guildCache = CommandIDCache.get(guildId);
     if (!guildCache) {

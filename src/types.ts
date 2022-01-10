@@ -1,4 +1,7 @@
-import {SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder} from "@discordjs/builders";
+import {
+    SlashCommandBuilder,
+    SlashCommandSubcommandsOnlyBuilder,
+} from "@discordjs/builders";
 import {CacheType, Client, Collection, CommandInteraction} from "discord.js";
 
 export interface CommandType {

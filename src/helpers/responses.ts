@@ -7,6 +7,19 @@ import {
 } from "discord.js";
 import {Config} from "../config";
 
+export const ChannelLink = (id: string) => `<#${id}>`;
+
+export const GenericError = {
+    embeds: [
+        new MessageEmbed()
+            .setTitle(":x: Command Failed")
+            // .setColor(Config.bot_info.color)
+            .setDescription(
+                "Something unexpected happened while executing this command."
+            ),
+    ],
+};
+
 /**
  * Responds to an interaction, safely. Will not crash in the
  * event of an already-replied interaction.
@@ -14,7 +27,7 @@ import {Config} from "../config";
  * @param reply The reply to send
  * @returns A promise to the rely, just as if `intr.reply` had been used.
  */
-export const safeReply = (
+export const SafeReply = (
     intr: CommandInteraction<CacheType>,
     reply: string | MessagePayload | InteractionReplyOptions
 ) => {
@@ -25,25 +38,4 @@ export const safeReply = (
     } else {
         return intr.reply(reply);
     }
-};
-
-export const SimpleTextEmbed = (
-    title: string,
-    description: string,
-    thumbnail: string | undefined = Config.bot_info.thumbnail,
-    color: string | undefined = Config.bot_info.color
-) => {
-    const embed = new MessageEmbed().setTitle(title).setDescription(description);
-    if (thumbnail) embed.setThumbnail(thumbnail);
-    if (color) embed.setColor(Number.parseInt(color.slice(1), 16));
-    return embed;
-};
-
-export const SimpleTextResponse = (
-    title: string,
-    description: string,
-    thumbnail: string | undefined = Config.bot_info.thumbnail,
-    color: string | undefined = Config.bot_info.color
-) => {
-    return {embeds: [SimpleTextEmbed(title, description, thumbnail, color)]};
 };

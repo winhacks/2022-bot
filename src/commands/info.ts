@@ -1,11 +1,13 @@
 import {SlashCommandBuilder} from "@discordjs/builders";
 import {CacheType, CommandInteraction, MessageEmbed} from "discord.js";
 import {Config} from "../config";
-import {NamedCommand} from "../helpers/commands";
 import {CommandType} from "../types";
 
 const infoModule: CommandType = {
-    data: NamedCommand("about", "See information about the bot and its developer."),
+    data: new SlashCommandBuilder() //
+        .setName("about")
+        .setDescription("See information about the bot and its developer."),
+
     execute: function (interaction: CommandInteraction<CacheType>) {
         const embed = new MessageEmbed()
             .setTitle(Config.bot_info.name)

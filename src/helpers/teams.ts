@@ -1,26 +1,52 @@
-import {Collection} from "discord.js";
+import {Guild} from "discord.js";
+import {ChannelTypes} from "discord.js/typings/enums";
 import {Document, Filter} from "mongodb";
 import {Config} from "../config";
 import {mongoClient} from "./mongoDB";
 
-export type AvailabilityType = "NAME_EXISTS" | "OWNER_EXISTS" | "ALREADY_IN_TEAM" | "AVAILABLE";
+export type AvailabilityType =
+    | "NAME_EXISTS"
+    | "OWNER_EXISTS"
+    | "ALREADY_IN_TEAM"
+    | "AVAILABLE";
 export type UpdateResultType = "FAILURE" | "SUCCESS";
 
-const getClient = () =>
-    mongoClient.db(Config.teams.database_name).collection(Config.teams.collection_name);
+const GetClient = async (name: string) => {
+    const db = mongoClient.db(Config.teams.database_name);
+    const collections = await db.listCollections({name: name}).toArray();
+
+    if (collections.length == 0) {
+        return db.createCollection(name);
+    }
+
+    return db.collection(name);
+};
 
 export type TeamType = {
     name: string;
+    stdName: string;
     owner: string;
     creationTimestamp: number;
-    members?: string[];
-    textChannel?: string;
-    voiceChannel?: string;
-    pendingInvites?: string[];
+    textChannel: string;
+    voiceChannel: string;
+    members: string[];
+    pendingInvites: string[];
 };
 
-export const getTeamByOwner = async (ownerId: string): Promise<TeamType | null> =>
-    (await getClient().findOne({owner: ownerId})) as TeamType | null;
+export type CategoryType = {
+    category_id: string;
+    team_count: number;
+};
+
+export const GetTeamByOwner = async (ownerId: string): Promise<TeamType | null> => {
+    const db = await GetClient("teams");
+    return (await db.findOne({owner: ownerId})) as TeamType | null;
+};
+
+export const GetTeamByName = async (name: string): Promise<TeamType | null> => {
+    const db = await GetClient("teams");
+    return (await db.findOne({name: name})) as TeamType | null;
+};
 
 export const getTeamByMember = async (
     memberId: string,
@@ -32,17 +58,63 @@ export const getTeamByMember = async (
     } else {
         query = {members: memberId};
     }
-    return (await getClient().findOne(query)) as TeamType | null;
+
+    const client = await GetClient("teams");
+    return (await client.findOne(query)) as TeamType | null;
 };
 
-export const checkTeamAvailability = async (
+export const GetUnfilledTeamCategory = async (guild: Guild): Promise<CategoryType> => {
+    const db = await GetClient("channelCategories");
+
+    const unfilledCategory = (await db.findOne({
+        team_count: {$lt: Config.teams.teams_per_category},
+    })) as CategoryType | null;
+
+    const numCategories = await db.countDocuments();
+
+    if (unfilledCategory) return unfilledCategory;
+
+    // category didn't already exist, make a new one
+    const newCatName = `${Config.teams.category_base_name} ${numCategories + 1}`;
+    const newCat = await guild.channels.create(newCatName, {
+        type: ChannelTypes.GUILD_CATEGORY,
+    });
+
+    const newCategory = {
+        category_id: newCat.id,
+        team_count: 0,
+    } as CategoryType;
+
+    await db.insertOne(newCategory);
+    return newCategory;
+};
+
+export const UpdateTeamCategory = async (
+    oldCat: CategoryType,
+    newCat: CategoryType
+): Promise<[CategoryType | null, boolean]> => {
+    const db = await GetClient("channelCategories");
+
+    const {value, ok} = await db.findOneAndReplace(oldCat, newCat);
+
+    return [
+        value as CategoryType | null, //
+        ok ? true : false,
+    ];
+};
+
+export const CheckTeamAvailability = async (
     teamName: string,
     userId: string
 ): Promise<[TeamType | undefined, AvailabilityType]> => {
-    const db = getClient();
+    const db = await GetClient("teams");
 
     const query = {
-        $or: [{name: teamName}, {owner: userId}, {members: userId}],
+        $or: [
+            {stdName: teamName.replaceAll(" ", "-")},
+            {owner: userId},
+            {members: userId},
+        ],
     } as Filter<Document>;
 
     const result = (await db.findOne(query)) as TeamType | null;
@@ -54,21 +126,24 @@ export const checkTeamAvailability = async (
     return [undefined, "AVAILABLE"];
 };
 
-export const putTeam = async (
+export const PutTeam = async (
     teamName: string,
     ownerId: string,
     textChannel: string,
     voiceChannel: string,
-    members?: string[]
+    members?: string[],
+    invites?: string[]
 ): Promise<TeamType | undefined> => {
-    const db = getClient();
+    const db = await GetClient("teams");
     const newTeam = {
         name: teamName,
+        stdName: teamName.replaceAll(" ", "-"),
         owner: ownerId,
         creationTimestamp: Math.floor(new Date().getTime() / 1000),
-        members: members ? members : [],
         textChannel: textChannel,
         voiceChannel: voiceChannel,
+        members: members ? members : [],
+        pendingInvites: invites ? invites : [],
     } as TeamType;
 
     const result = await db.insertOne(newTeam);
@@ -77,17 +152,15 @@ export const putTeam = async (
     return newTeam;
 };
 
-export const updateTeam = async (
+export const UpdateTeam = async (
     oldTeam: TeamType,
     newTeam: TeamType
-): Promise<[TeamType | null, UpdateResultType]> => {
-    const result = await getClient().findOneAndReplace(oldTeam, newTeam);
-
-    console.dir(result);
-    console.dir((await getClient().findOne(oldTeam)) as TeamType | null);
+): Promise<[TeamType | null, boolean]> => {
+    const db = await GetClient("teams");
+    const {value, ok} = await db.findOneAndReplace(oldTeam, newTeam);
 
     return [
-        result.value as TeamType | null, //
-        result.ok ? "SUCCESS" : "FAILURE",
+        value as TeamType | null, //
+        ok ? true : false,
     ];
 };
