@@ -7,18 +7,7 @@ import {
 } from "discord.js";
 import {Config} from "../config";
 
-export const ChannelLink = (id: string) => `<#${id}>`;
-
-export const GenericError = {
-    embeds: [
-        new MessageEmbed()
-            .setTitle(":x: Command Failed")
-            // .setColor(Config.bot_info.color)
-            .setDescription(
-                "Something unexpected happened while executing this command."
-            ),
-    ],
-};
+// UTILITIES ------------------------------------------------------------------
 
 /**
  * Responds to an interaction, safely. Will not crash in the
@@ -38,4 +27,43 @@ export const SafeReply = (
     } else {
         return intr.reply(reply);
     }
+};
+
+// SHARED RESPONSES -----------------------------------------------------------
+
+export const SuccessResponse = (message: string) => {
+    return {
+        embeds: [
+            new MessageEmbed()
+                .setColor(Config.bot_info.embedColor)
+                .setTitle(":partying_face: Success")
+                .setDescription(message),
+        ],
+    };
+};
+
+export const GenericError = () => {
+    return {
+        embeds: [
+            new MessageEmbed()
+                .setTitle(":x: Command Failed")
+                .setColor(Config.bot_info.embedColor)
+                .setDescription(
+                    "Something unexpected happened while executing this command."
+                ),
+        ],
+    };
+};
+
+export const NotVerifiedResponse = () => {
+    return {
+        embeds: [
+            new MessageEmbed()
+                .setTitle(":x: Not Verified")
+                .setColor(Config.bot_info.embedColor)
+                .setDescription(
+                    "You must be a verified user to use this. You can verify with `/verify`."
+                ),
+        ],
+    };
 };

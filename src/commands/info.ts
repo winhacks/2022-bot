@@ -13,10 +13,13 @@ const infoModule: CommandType = {
             .setTitle(Config.bot_info.name)
             .setDescription(Config.bot_info.description);
 
-        if (Config.bot_info.title_url) embed.setURL(Config.bot_info.title_url);
-        if (Config.bot_info.thumbnail) embed.setThumbnail(Config.bot_info.thumbnail);
-        if (Config.bot_info.color)
+        if (Config.bot_info.title_url) {
+            embed.setURL(Config.bot_info.title_url);
+        } else if (Config.bot_info.thumbnail) {
+            embed.setThumbnail(Config.bot_info.thumbnail);
+        } else if (Config.bot_info.color) {
             embed.setColor(Number.parseInt(Config.bot_info.color.slice(1), 16));
+        }
 
         return interaction.reply({embeds: [embed]});
     },

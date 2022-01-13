@@ -14,7 +14,9 @@ const socialsModule: CommandType = {
             .setTitle("Socials")
             .setColor(Config.bot_info.embedColor);
 
-        if (Config.bot_info.thumbnail) embed.setThumbnail(Config.bot_info.thumbnail);
+        if (Config.bot_info.thumbnail) {
+            embed.setThumbnail(Config.bot_info.thumbnail);
+        }
 
         if (!Config.socials) {
             return SafeReply(intr, {
@@ -30,7 +32,9 @@ const socialsModule: CommandType = {
         }
 
         const description = Object.entries(Config.socials)?.map(([key, value]) => {
-            if (!value) return undefined;
+            if (!value) {
+                return undefined;
+            }
 
             const name = key[0].toUpperCase() + key.slice(1);
             return hyperlink(name, value);

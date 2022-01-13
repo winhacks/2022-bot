@@ -1,15 +1,23 @@
 import {CacheType, CommandInteraction, MessageEmbed} from "discord.js";
 import {Config} from "../../config";
-import {ChannelLink, SafeReply} from "../../helpers/responses";
-import {getTeamByMember} from "../../helpers/teams";
-import {NotInGuildResponse, NotInTeamResponse} from "./team-shared";
+import {FindOne, teamCollection} from "../../helpers/database";
+import {ChannelLink} from "../../helpers/misc";
+import {SafeReply} from "../../helpers/responses";
+import {TeamType} from "../../types";
+import {NotInGuildResponse, NotInTeamResponse, TeamByMember} from "./team-shared";
 
 export const TeamInfo = async (intr: CommandInteraction<CacheType>): Promise<any> => {
-    if (!intr.guild) return SafeReply(intr, NotInGuildResponse);
+    if (!intr.guild) {
+        return SafeReply(intr, NotInGuildResponse());
+    }
 
-    const team = await getTeamByMember(intr.user.id, true);
+    const team = await FindOne<TeamType>(
+        teamCollection,
+        TeamByMember(intr.user.id, true)
+    );
+
     if (!team) {
-        return SafeReply(intr, NotInTeamResponse);
+        return SafeReply(intr, NotInTeamResponse());
     }
 
     const memberCache = intr.guild!.members.cache;
@@ -21,9 +29,6 @@ export const TeamInfo = async (intr: CommandInteraction<CacheType>): Promise<any
 
     const leader = memberCache.get(team.owner)!.displayName;
     const members = team.members.map((id) => memberCache.get(id)?.displayName);
-    members.push("Dummy Member 1");
-    members.push("Dummy Member 2");
-    members.push("Dummy Member 3");
 
     const channels = [
         ChannelLink(team.textChannel), //
@@ -35,7 +40,9 @@ export const TeamInfo = async (intr: CommandInteraction<CacheType>): Promise<any
         .setTitle(team.name)
         .addField("Team Leader", leader, true);
 
-    if (members) embed.addField("Team Members:", members.join("\n"), true);
+    if (members.length !== 0) {
+        embed.addField("Team Members:", members.join("\n"), true);
+    }
 
     embed.addField("Team Channels", channels.join("\n"));
     return SafeReply(intr, {

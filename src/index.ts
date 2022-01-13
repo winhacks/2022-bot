@@ -6,14 +6,14 @@ import {logger} from "./logger";
 import path from "path";
 import {readdirSync} from "fs";
 import {AuthenticateGoogleAPI} from "./helpers/sheetsAPI";
-import {SafeReply} from "./helpers/responses";
-import {AuthenticateMongo} from "./helpers/mongoDB";
-
-LoadConfig("config.json");
+import {GenericError, SafeReply} from "./helpers/responses";
+import {AuthenticateMongo} from "./helpers/database";
 
 const start = async () => {
+    LoadConfig("config.json");
+
     const client = new Client({
-        intents: [Intents.FLAGS.GUILDS],
+        intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.DIRECT_MESSAGES],
     }) as ClientType;
     client.commands = new Collection<string, CommandType>();
 
@@ -50,23 +50,20 @@ const start = async () => {
      * Interaction handler
      */
     client.on("interactionCreate", async (intr: Interaction<CacheType>) => {
-        const errRes = {
-            content: "There was an error while executing this command.",
-            ephemeral: true,
-        };
-
         // command dispatcher
         if (intr.isCommand()) {
             await intr.deferReply();
 
             const command = client.commands.get(intr.commandName) as CommandType;
-            if (!command) SafeReply(intr, errRes);
+            if (!command) {
+                SafeReply(intr, GenericError());
+            }
 
             try {
                 await command.execute(intr);
             } catch (error) {
                 logger.error(error);
-                SafeReply(intr, errRes);
+                SafeReply(intr, GenericError());
             }
         }
     });

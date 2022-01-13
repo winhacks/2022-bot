@@ -1,16 +1,24 @@
 import {SlashCommandBuilder, SlashCommandStringOption} from "@discordjs/builders";
-import {CacheType, CommandInteraction, GuildMemberRoleManager} from "discord.js";
+import {
+    CacheType,
+    Collection,
+    CommandInteraction,
+    GuildMemberRoleManager,
+    MessageEmbed,
+} from "discord.js";
 import {Config} from "../config";
-import {SafeReply} from "../helpers/responses";
-import {GetColumn} from "../helpers/sheetsAPI";
+import {InsertOne, verifiedCollection} from "../helpers/database";
+import {GetDefault} from "../helpers/misc";
+import {GenericError, SafeReply} from "../helpers/responses";
+import {GetColumn, GetRow} from "../helpers/sheetsAPI";
 import {logger} from "../logger";
-import {CommandType} from "../types";
+import {CardInfoType, CommandType, VerifiedUserType} from "../types";
 
 // source: https://www.emailregex.com/ (apparently 99.99% accurate)
 const emailRegex =
     /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
-let emailCache: string[] | undefined = undefined;
+let verifyCache: Collection<string, boolean> = new Collection<string, boolean>();
 
 const verifyModule: CommandType = {
     data: new SlashCommandBuilder() //
@@ -29,45 +37,62 @@ const verifyModule: CommandType = {
         }
 
         // ensure valid email is entered
-        const email = intr.options.getString("email")!;
+        const email = intr.options.getString("email", true);
         if (!email.match(emailRegex)) {
             return SafeReply(intr, "That doesn't appear to be a valid email address.");
         }
 
-        // check cache & update if needed
-        let verified = emailCache?.includes(email);
-        if (!verified || !emailCache) {
-            emailCache = await GetColumn(
-                Config.verify.target_sheet,
-                Config.verify.email_column
-            );
-            verified = emailCache?.includes(email);
+        // get data from sheets API
+        const emailColumn = await GetColumn(
+            Config.verify.target_sheet,
+            Config.verify.email_column
+        );
+        let emailIndex = emailColumn.indexOf(email);
+
+        // check cache & update if needed. Short-circuit if user is already verified.
+        let verified: boolean = GetDefault(verifyCache, email, false);
+        if (verified) {
+            const alreadyVerified = new MessageEmbed()
+                .setColor(Config.bot_info.embedColor)
+                .setTitle(":fire: Already Verified")
+                .setDescription("You're already verified.");
+            return SafeReply(intr, {embeds: [alreadyVerified]});
+        } else {
+            verified = emailIndex !== -1;
+            verifyCache.set(email, verified);
         }
 
         // handle verification result
         if (verified) {
-            // handle verified
-            const role = intr.guild!.roles.cache.findKey(
-                (role) => role.name === Config.verify.verified_role_name
-            );
-
-            if (!role)
-                throw new Error("Undefined verified role name. This is not permitted!");
-
-            const memberRoles = intr.member.roles;
-            if (memberRoles instanceof GuildMemberRoleManager) {
-                memberRoles.add(role);
-            } else {
-                memberRoles.push(role);
+            const userData = await GetRow(Config.verify.target_sheet, 1 + emailIndex);
+            const result = await VerifyUser(intr, email, userData);
+            if (!result) {
+                return SafeReply(intr, GenericError());
             }
 
             logger.info(`Verified ${intr.user.username} with email ${email}`);
             return SafeReply(intr, "Successfully verified!");
         } else {
-            // handle verification failed
             return SafeReply(intr, "Sorry, I couldn't verify that email address.");
         }
     },
+};
+
+const VerifyUser = async (
+    intr: CommandInteraction<CacheType>,
+    email: string,
+    userData: string[]
+): Promise<boolean> => {
+    // TODO: extract information from userData
+
+    const verifiedUser: VerifiedUserType = {
+        userID: intr.user.id,
+        verifiedAt: new Date().getTime(),
+        email: email,
+        infoCollectionConsent: false,
+    };
+
+    return InsertOne<VerifiedUserType>(verifiedCollection, verifiedUser);
 };
 
 export {verifyModule as command};

@@ -36,6 +36,8 @@ type ConfigType = {
     teams: {
         database_name: string;
         max_name_length: number;
+        max_team_size: number;
+        invite_duration: number;
         teams_per_category: number;
         category_base_name: string;
     };
@@ -44,6 +46,7 @@ type ConfigType = {
     bot_info: {
         name: string;
         color: string;
+        event_name: string;
         title_url?: string;
         thumbnail?: string;
         description: string;
