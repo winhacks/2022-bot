@@ -2,6 +2,8 @@ import {SlashCommandBuilder} from "@discordjs/builders";
 import {CacheType, CommandInteraction} from "discord.js";
 import {CommandType} from "../types";
 
+// FINISHED
+
 const pingModule: CommandType = {
     data: new SlashCommandBuilder() //
         .setName("ping")

@@ -13,6 +13,8 @@ import {RenameTeam} from "./team/rename";
 import {InviteToTeam} from "./team/invite";
 import {LeaveTeam} from "./team/leave";
 
+// FINISHED
+
 const teamModule: CommandType = {
     data: new SlashCommandBuilder() //
         .setName("team")

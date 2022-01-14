@@ -4,8 +4,8 @@ export const Remove = (collection: Array<any>, element: any): Array<any> => {
     return collection.filter((e) => e !== element);
 };
 
-export const RelativeTime = (val: Date) => {
-    return `<t:${Math.floor(val.getTime() / 1000)}:R>`;
+export const RelativeTime = (val: number) => {
+    return `<t:${Math.floor(val / 1000)}:R>`;
 };
 
 export const ChannelLink = (id: string) => `<#${id}>`;

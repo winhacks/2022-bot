@@ -29,15 +29,16 @@ export const SafeReply = (
     }
 };
 
+export const ResponseEmbed = () => {
+    return new MessageEmbed().setColor(Config.bot_info.embedColor);
+};
+
 // SHARED RESPONSES -----------------------------------------------------------
 
 export const SuccessResponse = (message: string) => {
     return {
         embeds: [
-            new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
-                .setTitle(":partying_face: Success")
-                .setDescription(message),
+            ResponseEmbed().setTitle(":partying_face: Success").setDescription(message),
         ],
     };
 };
@@ -45,9 +46,8 @@ export const SuccessResponse = (message: string) => {
 export const GenericError = () => {
     return {
         embeds: [
-            new MessageEmbed()
+            ResponseEmbed()
                 .setTitle(":x: Command Failed")
-                .setColor(Config.bot_info.embedColor)
                 .setDescription(
                     "Something unexpected happened while executing this command."
                 ),
@@ -58,9 +58,8 @@ export const GenericError = () => {
 export const NotVerifiedResponse = () => {
     return {
         embeds: [
-            new MessageEmbed()
+            ResponseEmbed()
                 .setTitle(":x: Not Verified")
-                .setColor(Config.bot_info.embedColor)
                 .setDescription(
                     "You must be a verified user to use this. You can verify with `/verify`."
                 ),

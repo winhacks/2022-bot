@@ -1,24 +1,30 @@
-import {SlashCommandBuilder, SlashCommandStringOption} from "@discordjs/builders";
 import {
-    CacheType,
-    Collection,
-    CommandInteraction,
-    GuildMemberRoleManager,
-    MessageEmbed,
-} from "discord.js";
+    hyperlink,
+    SlashCommandBuilder,
+    SlashCommandStringOption,
+} from "@discordjs/builders";
+import {CacheType, Collection, CommandInteraction, MessageEmbed} from "discord.js";
 import {Config} from "../config";
 import {InsertOne, verifiedCollection} from "../helpers/database";
 import {GetDefault} from "../helpers/misc";
-import {GenericError, SafeReply} from "../helpers/responses";
+import {
+    GenericError,
+    ResponseEmbed,
+    SafeReply,
+    SuccessResponse,
+} from "../helpers/responses";
 import {GetColumn, GetRow} from "../helpers/sheetsAPI";
 import {logger} from "../logger";
 import {CardInfoType, CommandType, VerifiedUserType} from "../types";
+import {NotInGuildResponse} from "./team/team-shared";
 
 // source: https://www.emailregex.com/ (apparently 99.99% accurate)
 const emailRegex =
     /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
 let verifyCache: Collection<string, boolean> = new Collection<string, boolean>();
+
+// TODO: store user data in database, provided they give consent
 
 const verifyModule: CommandType = {
     data: new SlashCommandBuilder() //
@@ -31,15 +37,20 @@ const verifyModule: CommandType = {
                 .setRequired(true)
         ),
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
-        // ensure in guild
-        if (!intr.inGuild()) {
-            return SafeReply(intr, ":x: This command can only be used in servers.");
-        }
-
-        // ensure valid email is entered
         const email = intr.options.getString("email", true);
-        if (!email.match(emailRegex)) {
-            return SafeReply(intr, "That doesn't appear to be a valid email address.");
+
+        if (!intr.inGuild()) {
+            return SafeReply(intr, NotInGuildResponse());
+        } else if (!email.match(emailRegex)) {
+            return SafeReply(intr, {
+                embeds: [
+                    ResponseEmbed()
+                        .setTitle(":x: Invalid Email")
+                        .setDescription(
+                            "That doesn't appear to be a valid email address."
+                        ),
+                ],
+            });
         }
 
         // get data from sheets API
@@ -52,8 +63,7 @@ const verifyModule: CommandType = {
         // check cache & update if needed. Short-circuit if user is already verified.
         let verified: boolean = GetDefault(verifyCache, email, false);
         if (verified) {
-            const alreadyVerified = new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
+            const alreadyVerified = ResponseEmbed()
                 .setTitle(":fire: Already Verified")
                 .setDescription("You're already verified.");
             return SafeReply(intr, {embeds: [alreadyVerified]});
@@ -71,9 +81,20 @@ const verifyModule: CommandType = {
             }
 
             logger.info(`Verified ${intr.user.username} with email ${email}`);
-            return SafeReply(intr, "Successfully verified!");
+            return SafeReply(intr, SuccessResponse("You are now verified."));
         } else {
-            return SafeReply(intr, "Sorry, I couldn't verify that email address.");
+            return SafeReply(intr, {
+                embeds: [
+                    ResponseEmbed()
+                        .setTitle(":x: Verification Failed")
+                        .setDescription(
+                            `I couldn't verify that email address. If you haven't registered, you can ${hyperlink(
+                                "register here",
+                                Config.verify.registration_url
+                            )}.`
+                        ),
+                ],
+            });
         }
     },
 };
@@ -83,11 +104,9 @@ const VerifyUser = async (
     email: string,
     userData: string[]
 ): Promise<boolean> => {
-    // TODO: extract information from userData
-
     const verifiedUser: VerifiedUserType = {
         userID: intr.user.id,
-        verifiedAt: new Date().getTime(),
+        verifiedAt: Date.now(),
         email: email,
         infoCollectionConsent: false,
     };

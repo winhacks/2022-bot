@@ -1,7 +1,12 @@
 import {CommandInteraction, CacheType} from "discord.js";
 import {Config} from "../../config";
 import {InsertOne, teamCollection} from "../../helpers/database";
-import {GenericError, SafeReply, SuccessResponse} from "../../helpers/responses";
+import {
+    GenericError,
+    NotVerifiedResponse,
+    SafeReply,
+    SuccessResponse,
+} from "../../helpers/responses";
 import {TeamAvailability, TeamType} from "../../types";
 import {
     AlreadyInTeamResponse,
@@ -9,6 +14,7 @@ import {
     Discordify,
     GetTeamAvailability,
     InvalidNameResponse,
+    IsUserVerified,
     MakeTeam,
     MakeTeamChannels,
     NameTakenResponse,
@@ -16,9 +22,13 @@ import {
     ValidateTeamName,
 } from "./team-shared";
 
+// FINISHED
+
 export const CreateTeam = async (intr: CommandInteraction<CacheType>): Promise<any> => {
     if (!intr.guild) {
         return SafeReply(intr, NotInGuildResponse());
+    } else if (!(await IsUserVerified(intr.user.id))) {
+        return SafeReply(intr, NotVerifiedResponse());
     }
 
     const teamName = intr.options

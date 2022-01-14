@@ -1,10 +1,11 @@
-import {CacheType, CommandInteraction, MessageEmbed} from "discord.js";
-import {Config} from "../../config";
+import {CacheType, CommandInteraction} from "discord.js";
 import {FindOne, teamCollection} from "../../helpers/database";
 import {ChannelLink} from "../../helpers/misc";
-import {SafeReply} from "../../helpers/responses";
+import {ResponseEmbed, SafeReply} from "../../helpers/responses";
 import {TeamType} from "../../types";
 import {NotInGuildResponse, NotInTeamResponse, TeamByMember} from "./team-shared";
+
+// FINISHED
 
 export const TeamInfo = async (intr: CommandInteraction<CacheType>): Promise<any> => {
     if (!intr.guild) {
@@ -35,8 +36,7 @@ export const TeamInfo = async (intr: CommandInteraction<CacheType>): Promise<any
         ChannelLink(team.voiceChannel),
     ];
 
-    const embed = new MessageEmbed() //
-        .setColor(Config.bot_info.embedColor)
+    const embed = ResponseEmbed()
         .setTitle(team.name)
         .addField("Team Leader", leader, true);
 

@@ -1,5 +1,10 @@
 import {CacheType, CommandInteraction} from "discord.js";
-import {FindAndReplace, FindOne, teamCollection} from "../../helpers/database";
+import {
+    FindAndReplace,
+    FindOne,
+    teamCollection,
+    WithTransaction,
+} from "../../helpers/database";
 import {GenericError, SafeReply, SuccessResponse} from "../../helpers/responses";
 import {TeamType} from "../../types";
 import {
@@ -13,8 +18,10 @@ import {
     ValidateTeamName,
 } from "./team-shared";
 
+// FINISHED
+
 export const RenameTeam = async (intr: CommandInteraction<CacheType>) => {
-    if (!intr.guild) {
+    if (!intr.inGuild()) {
         return SafeReply(intr, NotInGuildResponse());
     }
 
@@ -36,8 +43,8 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>) => {
     }
 
     // ensure channels that will be renamed exist
-    const voice = intr.guild.channels.cache.get(oldTeam.voiceChannel);
-    const text = intr.guild.channels.cache.get(oldTeam.textChannel);
+    const voice = intr.guild!.channels.cache.get(oldTeam.voiceChannel);
+    const text = intr.guild!.channels.cache.get(oldTeam.textChannel);
 
     if (!voice || !text) {
         return SafeReply(intr, GenericError());
@@ -47,14 +54,26 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>) => {
     const newTeam = {...oldTeam};
     newTeam.name = newName;
 
-    if (!(await FindAndReplace<TeamType>(teamCollection, oldTeam, newTeam))) {
+    const result = await WithTransaction(async (): Promise<boolean> => {
+        if (!(await FindAndReplace<TeamType>(teamCollection, oldTeam, newTeam))) {
+            return false;
+        }
+
+        let rename = await Promise.allSettled([
+            voice.setName(`${discordified}-voice`),
+            text.setName(`${discordified}`),
+        ]);
+
+        if (rename.map((e) => e.status).includes("rejected")) {
+            return false;
+        }
+
+        return true;
+    });
+
+    if (!result) {
         return SafeReply(intr, GenericError());
     }
-
-    await Promise.allSettled([
-        voice.setName(`${discordified}-voice`),
-        text.setName(`${discordified}`),
-    ]);
 
     // tell user everything went OK
     let okRes = [

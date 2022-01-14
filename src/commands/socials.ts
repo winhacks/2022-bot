@@ -1,8 +1,11 @@
 import {hyperlink, SlashCommandBuilder} from "@discordjs/builders";
-import {CacheType, CommandInteraction, MessageEmbed} from "discord.js";
+import {CacheType, CommandInteraction} from "discord.js";
 import {Config} from "../config";
-import {SafeReply} from "../helpers/responses";
+import {ResponseEmbed, SafeReply} from "../helpers/responses";
 import {CommandType} from "../types";
+import {NotInGuildResponse} from "./team/team-shared";
+
+// FINISHED
 
 const socialsModule: CommandType = {
     data: new SlashCommandBuilder() //
@@ -10,19 +13,19 @@ const socialsModule: CommandType = {
         .setDescription("View the WinHacks socials."),
 
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
-        const embed = new MessageEmbed()
-            .setTitle("Socials")
-            .setColor(Config.bot_info.embedColor);
+        if (!intr.inGuild()) {
+            return SafeReply(intr, NotInGuildResponse());
+        }
 
+        const embed = ResponseEmbed().setTitle("Socials");
         if (Config.bot_info.thumbnail) {
             embed.setThumbnail(Config.bot_info.thumbnail);
         }
 
-        if (!Config.socials) {
+        if (!Config.socials || Object.entries(Config.socials).length === 0) {
             return SafeReply(intr, {
                 embeds: [
-                    new MessageEmbed()
-                        .setColor(Config.bot_info.embedColor)
+                    ResponseEmbed()
                         .setTitle(":confused: No Socials")
                         .setDescription(
                             "There are no socials configured. Its not you, its me."
@@ -32,12 +35,12 @@ const socialsModule: CommandType = {
         }
 
         const description = Object.entries(Config.socials)?.map(([key, value]) => {
+            const capitalized = key[0].toUpperCase() + key.slice(1);
             if (!value) {
-                return undefined;
+                return capitalized;
             }
 
-            const name = key[0].toUpperCase() + key.slice(1);
-            return hyperlink(name, value);
+            return hyperlink(capitalized, value);
         });
 
         embed.setDescription(description.join("\n"));

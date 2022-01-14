@@ -1,4 +1,4 @@
-import {Guild, MessageEmbed, OverwriteResolvable} from "discord.js";
+import {Guild, OverwriteResolvable} from "discord.js";
 import {ChannelTypes} from "discord.js/typings/enums";
 import {Config} from "../../config";
 import {
@@ -7,16 +7,23 @@ import {
     FindOne,
     GetClient,
     teamCollection,
+    verifiedCollection,
 } from "../../helpers/database";
-import {CategoryType, Query, TeamAvailability, TeamType} from "../../types";
+import {ResponseEmbed} from "../../helpers/responses";
+import {
+    CategoryType,
+    Query,
+    TeamAvailability,
+    TeamType,
+    VerifiedUserType,
+} from "../../types";
 
 // RESPONSES ------------------------------------------------------------------
 
 export const InvalidNameResponse = () => {
     return {
         embeds: [
-            new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
+            ResponseEmbed()
                 .setTitle(":x: Invalid Team Name")
                 .setDescription(
                     `Team names must be shorter than ${Config.teams.max_name_length} characters, consist only of spaces and English alphanumeric characters, and not already be taken.`
@@ -28,8 +35,7 @@ export const InvalidNameResponse = () => {
 export const NameTakenResponse = () => {
     return {
         embeds: [
-            new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
+            ResponseEmbed()
                 .setTitle(":x: Name Taken")
                 .setDescription("That name is already taken, sorry."),
         ],
@@ -39,8 +45,7 @@ export const NameTakenResponse = () => {
 export const AlreadyOwnTeamResponse = () => {
     return {
         embeds: [
-            new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
+            ResponseEmbed()
                 .setTitle(":x: You're Already a Team Leader")
                 .setDescription("You already have a team. In fact, you're the leader!"),
         ],
@@ -50,8 +55,7 @@ export const AlreadyOwnTeamResponse = () => {
 export const NotTeamLeaderResponse = () => {
     return {
         embeds: [
-            new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
+            ResponseEmbed()
                 .setTitle(":x: Not a Team Leader")
                 .setDescription("This command may only be used by team leaders."),
         ],
@@ -61,8 +65,7 @@ export const NotTeamLeaderResponse = () => {
 export const AlreadyInTeamResponse = () => {
     return {
         embeds: [
-            new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
+            ResponseEmbed()
                 .setTitle(":x: Already in a Team")
                 .setDescription(
                     "You're already in a team. You can leave your team with `/team leave`."
@@ -74,8 +77,7 @@ export const AlreadyInTeamResponse = () => {
 export const NotInTeamResponse = () => {
     return {
         embeds: [
-            new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
+            ResponseEmbed()
                 .setTitle(":x: Not in a Team")
                 .setDescription(
                     "You're not in a team yet. Ask your team leader for an invite, or create your own with `/team create`."
@@ -87,8 +89,7 @@ export const NotInTeamResponse = () => {
 export const NotInGuildResponse = () => {
     return {
         embeds: [
-            new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
+            ResponseEmbed()
                 .setTitle(":x: Not in a Server")
                 .setDescription("This command must be used inside a server."),
         ],
@@ -98,8 +99,7 @@ export const NotInGuildResponse = () => {
 export const TeamFullResponse = () => {
     return {
         embeds: [
-            new MessageEmbed()
-                .setColor(Config.bot_info.embedColor)
+            ResponseEmbed()
                 .setTitle(":x: Team Full")
                 .setDescription(
                     `Teams can only have up to ${Config.teams.max_team_size} members.`
@@ -109,6 +109,10 @@ export const TeamFullResponse = () => {
 };
 
 // UTILITIES ------------------------------------------------------------------
+
+export const IsUserVerified = async (id: string) => {
+    return !!(await FindOne<VerifiedUserType>(verifiedCollection, VerifiedUserByID(id)));
+};
 
 export const MakeTeam = (
     teamName: string,

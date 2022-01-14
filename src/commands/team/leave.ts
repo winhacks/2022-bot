@@ -5,13 +5,14 @@ import {
     FindAndReplace,
     FindOne,
     teamCollection,
+    WithTransaction,
 } from "../../helpers/database";
 import {Remove, UserLink} from "../../helpers/misc";
 import {GenericError, SafeReply, SuccessResponse} from "../../helpers/responses";
 import {CategoryType, TeamType} from "../../types";
 import {NotInGuildResponse, NotInTeamResponse, TeamByMember} from "./team-shared";
 
-// TODO: test this shit. I'm tired and don't wanna do it now
+// FINISHED
 
 export const LeaveTeam = async (intr: CommandInteraction<CacheType>) => {
     if (!intr.inGuild()) {
@@ -46,7 +47,13 @@ export const LeaveTeam = async (intr: CommandInteraction<CacheType>) => {
             : "";
     }
 
+    // don't respond if the command was issued from within team text
+    if (intr.channelId === team.textChannel) {
+        return "No reply";
+    }
+
     if (!message) {
+        // no message -> an error somewhere in the stack
         return SafeReply(intr, GenericError());
     } else {
         return SafeReply(intr, SuccessResponse(message));
@@ -64,41 +71,37 @@ const PromoteUserOutcome = async (
 };
 
 const DeleteTeamOutcome = async (intr: CommandInteraction<CacheType>, team: TeamType) => {
-    const vc = await intr.guild!.channels.fetch(team.voiceChannel);
-    const tc = await intr.guild!.channels.fetch(team.textChannel);
-    const catId = vc ? vc.parentId : tc ? tc.parentId : null;
+    return WithTransaction(async () => {
+        const vc = await intr.guild!.channels.fetch(team.voiceChannel);
+        const tc = await intr.guild!.channels.fetch(team.textChannel);
+        const catId = vc ? vc.parentId : tc ? tc.parentId : null;
 
-    let category = await FindOne<CategoryType>(categoryCollection, {
-        category_id: catId,
+        let category = await FindOne<CategoryType>(categoryCollection, {
+            category_id: catId,
+        });
+
+        if (!category) {
+            return false;
+        }
+
+        category.team_count -= 1;
+        if (
+            !(await FindAndReplace<CategoryType>(
+                categoryCollection,
+                {category_id: category.category_id},
+                category
+            ))
+        ) {
+            return false;
+        }
+
+        await Promise.allSettled([
+            vc?.delete("Team disbanded"),
+            tc?.delete("Team disbanded"),
+        ]);
+
+        return FindAndRemove<TeamType>(teamCollection, team);
     });
-
-    if (!category) {
-        return false;
-    }
-
-    // FIXME: replace proof of concept with transactions
-    // We should replace this with a transaction-based
-    // implementation, as this current implementation may
-    // fragment the database if the category update succeeds
-    // but team deletion fails.
-
-    category.team_count -= 1;
-    const categoryUpdate = await FindAndReplace<CategoryType>(
-        categoryCollection,
-        {category_id: category.category_id},
-        category
-    );
-
-    if (!categoryUpdate) {
-        return false;
-    }
-
-    await Promise.allSettled([
-        vc?.delete("Team disbanded"),
-        tc?.delete("Team disbanded"),
-    ]);
-
-    return FindAndRemove<TeamType>(teamCollection, team);
 };
 
 const MemberLeavingOutcome = async (

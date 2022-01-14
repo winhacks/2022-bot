@@ -27,6 +27,7 @@ type ConfigType = {
 
     // verify command config
     verify: {
+        registration_url: string;
         target_sheet: string;
         email_column: string;
         verified_role_name: string;

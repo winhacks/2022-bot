@@ -3,10 +3,6 @@ import {MongoClient, Collection as MongoCollection, Document} from "mongodb";
 import {Config} from "../config";
 import {Query} from "../types";
 
-// TODO: implement transaction safety methods for non-atomic operations
-// StartTransaction => [session, client] and
-// EndTransaction(session, client) => boolean, perhaps
-
 let mongoClient: MongoClient;
 const collectionCache: Collection<string, MongoCollection<Document>> = new Collection<
     string,
@@ -14,8 +10,8 @@ const collectionCache: Collection<string, MongoCollection<Document>> = new Colle
 >();
 
 export const teamCollection = "teams";
-export const categoryCollection = "channelCategories";
-export const verifiedCollection = "verifiedUsers";
+export const categoryCollection = "team_categories";
+export const verifiedCollection = "users";
 export const inviteCollection = "invites";
 
 export const AuthenticateMongo = async () => {
@@ -55,6 +51,23 @@ export const GetClient = async (name: string) => {
     return collection;
 };
 
+// Performs an operation under the safety of a transaction
+export const WithTransaction = async (operation: {(): Promise<boolean>}) => {
+    const session = mongoClient.startSession();
+    session.startTransaction();
+
+    const success = await operation();
+    if (success) {
+        session.commitTransaction();
+    } else {
+        session.abortTransaction();
+    }
+
+    session.endSession();
+    return success;
+};
+
+// inserts a document into the named collection
 export const InsertOne = async <T>(collection: string, toInsert: T): Promise<boolean> => {
     const db = await GetClient(collection);
     const result = await db.insertOne(toInsert);
@@ -62,6 +75,7 @@ export const InsertOne = async <T>(collection: string, toInsert: T): Promise<boo
     return result.acknowledged;
 };
 
+// returns a document matching the query inside the named collection
 export const FindOne = async <T>(collection: string, query: Query): Promise<T | null> => {
     const db = await GetClient(collection);
 
@@ -69,6 +83,7 @@ export const FindOne = async <T>(collection: string, query: Query): Promise<T | 
     return res as T | null;
 };
 
+// finds and replaces a document matching the query inside the named collection
 export const FindAndReplace = async <T>(
     collection: string,
     find: T | Query,
@@ -80,6 +95,7 @@ export const FindAndReplace = async <T>(
     return !!result.ok;
 };
 
+// finds and removes a document matching the query from the named collection
 export const FindAndRemove = async <T>(
     collection: string,
     toDelete: T | Query
