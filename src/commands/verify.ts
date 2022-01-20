@@ -15,7 +15,7 @@ import {
 } from "../helpers/responses";
 import {GetColumn, GetRow} from "../helpers/sheetsAPI";
 import {logger} from "../logger";
-import {CardInfoType, CommandType, VerifiedUserType} from "../types";
+import {CommandType, VerifiedUserType} from "../types";
 import {NotInGuildResponse} from "./team/team-shared";
 
 // source: https://www.emailregex.com/ (apparently 99.99% accurate)
@@ -55,6 +55,7 @@ const verifyModule: CommandType = {
 
         // get data from sheets API
         const emailColumn = await GetColumn(
+            Config.verify.target_sheet_id,
             Config.verify.target_sheet,
             Config.verify.email_column
         );
@@ -74,7 +75,11 @@ const verifyModule: CommandType = {
 
         // handle verification result
         if (verified) {
-            const userData = await GetRow(Config.verify.target_sheet, 1 + emailIndex);
+            const userData = await GetRow(
+                Config.verify.target_sheet,
+                Config.verify.target_sheet_id,
+                1 + emailIndex
+            );
             const result = await VerifyUser(intr, email, userData);
             if (!result) {
                 return SafeReply(intr, GenericError());

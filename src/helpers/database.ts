@@ -1,5 +1,10 @@
 import {Collection} from "discord.js";
-import {MongoClient, Collection as MongoCollection, Document} from "mongodb";
+import {
+    MongoClient,
+    Collection as MongoCollection,
+    Document,
+    UpdateFilter,
+} from "mongodb";
 import {Config} from "../config";
 import {Query} from "../types";
 
@@ -13,6 +18,8 @@ export const teamCollection = "teams";
 export const categoryCollection = "team_categories";
 export const verifiedCollection = "users";
 export const inviteCollection = "invites";
+
+// HACK: Create actual schema type instead of using MongoDB's base Document type
 
 export const AuthenticateMongo = async () => {
     mongoClient = new MongoClient(Config.mongo_db.database_url, {
@@ -51,7 +58,7 @@ export const GetClient = async (name: string) => {
     return collection;
 };
 
-// Performs an operation under the safety of a transaction
+// Performs an operation under the safety of a transaction. Auto-commits after operation success.
 export const WithTransaction = async (operation: {(): Promise<boolean>}) => {
     const session = mongoClient.startSession();
     session.startTransaction();
@@ -79,29 +86,56 @@ export const InsertOne = async <T>(collection: string, toInsert: T): Promise<boo
 export const FindOne = async <T>(collection: string, query: Query): Promise<T | null> => {
     const db = await GetClient(collection);
 
-    const res = await db.findOne(query);
-    return res as T | null;
+    const result = await db.findOne(query);
+    return result as T | null;
 };
 
 // finds and replaces a document matching the query inside the named collection
 export const FindAndReplace = async <T>(
     collection: string,
     find: T | Query,
-    replaceWith: T
+    replaceWith: T,
+    required?: boolean
 ): Promise<boolean> => {
     const db = await GetClient(collection);
 
     const result = await db.findOneAndReplace(find, replaceWith);
-    return !!result.ok;
+    return !!result.ok && (!required || result.lastErrorObject?.updatedExisting);
+};
+
+// finds a document and applies the update to it
+export const FindAndUpdate = async <T>(
+    collection: string,
+    find: T | Query,
+    update: UpdateFilter<Document>,
+    required?: boolean
+): Promise<boolean> => {
+    const db = await GetClient(collection);
+
+    const result = await db.findOneAndUpdate(find, update);
+    return !!result.ok && (!required || result.lastErrorObject?.updatedExisting);
+};
+
+export const FindAndUpdateAll = async <T>(
+    collection: string,
+    find: T | Query,
+    update: UpdateFilter<Document>,
+    required?: boolean
+) => {
+    const db = await GetClient(collection);
+
+    const result = await db.updateMany(find, update);
+    return !!result.acknowledged && (!required || result.matchedCount != 0);
 };
 
 // finds and removes a document matching the query from the named collection
 export const FindAndRemove = async <T>(
     collection: string,
-    toDelete: T | Query
+    toDelete: T | Query,
+    required?: boolean
 ): Promise<boolean> => {
     const db = await GetClient(collection);
 
     const result = await db.findOneAndDelete(toDelete);
-    return !!result.ok;
+    return !!result.ok && (!required || result.lastErrorObject?.updatedExisting);
 };

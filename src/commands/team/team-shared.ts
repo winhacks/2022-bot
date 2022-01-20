@@ -284,16 +284,12 @@ export const TeamByMember = (memberID: string, includeOwner?: boolean): Query =>
     }
 };
 
+export const TeamByInvite = (inviteID: string): Query => {
+    return {invites: inviteID};
+};
+
 export const UnfilledCategory = (): Query => {
     return {team_count: {$lt: Config.teams.teams_per_category}};
-};
-
-export const InviteByUser = (userID: string): Query => {
-    return {forUser: userID};
-};
-
-export const InviteByTeam = (teamName: string): Query => {
-    return {forTeam: teamName};
 };
 
 export const VerifiedUserByEmail = (email: string): Query => {

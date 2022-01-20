@@ -2,6 +2,7 @@ import {
     CacheType,
     CommandInteraction,
     InteractionReplyOptions,
+    MessageComponentInteraction,
     MessageEmbed,
     MessagePayload,
 } from "discord.js";
@@ -17,7 +18,7 @@ import {Config} from "../config";
  * @returns A promise to the rely, just as if `intr.reply` had been used.
  */
 export const SafeReply = (
-    intr: CommandInteraction<CacheType>,
+    intr: CommandInteraction<CacheType> | MessageComponentInteraction,
     reply: string | MessagePayload | InteractionReplyOptions
 ) => {
     if (intr.replied) {

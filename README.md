@@ -59,7 +59,8 @@ Once you have a database, you need to add its details to the config. Most of the
  - `description`: the text content to place in the embed description. Markdown-style inline links are supported.
 
 #### Verify
- - `target_sheet`: the ID of the spreadsheet to use for verification. It will need to be shared with the service worker account. You can find the ID in the sheet URL: `https://docs.google.com/spreadsheets/d/**SHEET_ID_HERE**/edit`.
+ - `target_sheet_id`: the ID of the spreadsheet to use for verification. It will need to be shared with the service worker account. You can find the ID in the sheet URL: `https://docs.google.com/spreadsheets/d/**SHEET_ID_HERE**/edit`.
+ - `target_sheet`: the name of the sheet to use for verification data.
  - `email_column`: the column in the `target_sheet` that contains emails to verify users against. Must be a single letter.
  - `verified_role_name`: the display name of the role to give verified users.
 

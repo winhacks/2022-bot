@@ -10,13 +10,16 @@ import {GenericError, SafeReply} from "./helpers/responses";
 import {AuthenticateMongo} from "./helpers/database";
 
 const start = async () => {
+    logger.info("Loading config...");
     LoadConfig("config.json");
 
+    logger.info("Logging into Discord...");
     const client = new Client({
         intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.DIRECT_MESSAGES],
     }) as ClientType;
     client.commands = new Collection<string, CommandType>();
 
+    logger.info("Authenticating with APIs...");
     await client.login(Config.api_token);
     await AuthenticateGoogleAPI();
     await AuthenticateMongo();

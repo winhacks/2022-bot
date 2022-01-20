@@ -33,17 +33,12 @@ export type TeamType = {
     textChannel: string;
     voiceChannel: string;
     members: string[];
+    invites: string[];
 };
 
 export type CategoryType = {
     category_id: string;
     team_count: number;
-};
-
-export type InviteType = {
-    forUser: string;
-    forTeam: string;
-    createdAt: string;
 };
 
 export type VerifiedUserType = {

@@ -16,8 +16,8 @@ export const AuthenticateGoogleAPI = async () => {
     google.options({auth: client});
 };
 
-export const BuildRange = (sheetNumber: number, startCell: string, endCell: string) => {
-    return `Sheet${sheetNumber}!${startCell}:${endCell}`;
+export const BuildRange = (sheetNumber: string, startCell: string, endCell: string) => {
+    return `${sheetNumber}!${startCell}:${endCell}`;
 };
 
 /**
@@ -42,30 +42,30 @@ export const GetRange = async (
  * Returns the data in a single column of `targetSheet` on page `sheetNumber` in column-major form
  * @param target the ID of the sheet to read data from
  * @param col a single letter, identifying the column read from
- * @param page an optional number, specifying the page number of the `target` to read from
+ * @param target_sheet an optional number, specifying the page number of the `target` to read from
  * @returns a string array of the data in column `col` of `target`'s page `page`
  */
 export const GetColumn = async (
-    target: string,
-    col: string,
-    page: number = 1
+    target_id: string,
+    target_sheet: string = "Sheet1",
+    col: string
 ): Promise<string[]> => {
-    const range = BuildRange(page, col, col);
-    return (await GetRange(target, range, "COLUMNS")).data.values![0];
+    const range = BuildRange(target_sheet, col, col);
+    return (await GetRange(target_id, range, "COLUMNS")).data.values![0];
 };
 
 /**
  * Returns the data in a single row of `target` on page `page` in row-major form
- * @param target the ID of the sheet to read data from
+ * @param target_id the ID of the sheet to read data from
  * @param row a single number, identifying the row to get data from. First row is `1`.
  * @param page an optional number, specifying the page number of the `target` to read from
  * @returns a string array of the data in row `row` of `target`'s page `page`
  */
 export const GetRow = async (
-    target: string,
-    row: number | string,
-    page: number = 1
+    target_id: string,
+    target_sheet: string = "Sheet1",
+    row: number | string
 ): Promise<string[]> => {
-    const range = BuildRange(page, `${row}`, `${row}`);
-    return (await GetRange(target, range, "ROWS")).data.values![0];
+    const range = BuildRange(target_sheet, `${row}`, `${row}`);
+    return (await GetRange(target_id, range, "ROWS")).data.values![0];
 };

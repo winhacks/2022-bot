@@ -1,17 +1,25 @@
-import {hyperlink} from "@discordjs/builders";
 import {
+    BaseGuildVoiceChannel,
+    ButtonInteraction,
     CacheType,
+    Collection,
     CommandInteraction,
-    DiscordAPIError,
+    Guild,
+    GuildChannel,
+    GuildTextBasedChannel,
     Message,
     MessageActionRow,
     MessageButton,
     MessageComponentInteraction,
 } from "discord.js";
-import {MessageButtonStyles} from "discord.js/typings/enums";
+import {Document, PullAllOperator, PullOperator, PushOperator} from "mongodb";
 import {Config} from "../../config";
-import {FindOne, teamCollection} from "../../helpers/database";
-import {RelativeTime} from "../../helpers/misc";
+import {
+    FindAndUpdate,
+    FindOne,
+    teamCollection,
+    WithTransaction,
+} from "../../helpers/database";
 import {
     GenericError,
     NotVerifiedResponse,
@@ -20,16 +28,16 @@ import {
 } from "../../helpers/responses";
 import {TeamType} from "../../types";
 import {
-    GetInviteId,
     IsUserVerified,
     NotInGuildResponse,
     NotTeamLeaderResponse,
-    ParseInviteId,
-    TeamByMember,
-    TeamByName,
     TeamByOwner,
     TeamFullResponse,
 } from "./team-shared";
+import {Document as MongoDocument} from "mongodb";
+import {Timestamp} from "../../helpers/misc";
+import {MessageButtonStyles} from "discord.js/typings/enums";
+import {TimestampStyles} from "@discordjs/builders";
 
 // TODO: Create in-memory invite cache
 // TODO: Create database storage
@@ -40,6 +48,13 @@ export const InviteToTeam = async (intr: CommandInteraction<CacheType>): Promise
         return SafeReply(intr, NotInGuildResponse());
     } else if (!(await IsUserVerified(intr.user.id))) {
         return SafeReply(intr, NotVerifiedResponse());
+    }
+
+    const inviteTo = await FindOne<TeamType>(teamCollection, TeamByOwner(intr.user.id));
+    if (!inviteTo) {
+        return SafeReply(intr, NotTeamLeaderResponse());
+    } else if (inviteTo.members.length + 1 >= Config.teams.max_team_size) {
+        return SafeReply(intr, TeamFullResponse());
     }
 
     const invitee = intr.options.getUser("user", true);
@@ -54,7 +69,7 @@ export const InviteToTeam = async (intr: CommandInteraction<CacheType>): Promise
                     ),
             ],
         });
-    } else if (intr.user.id === invitee.id) {
+    } else if (intr.user.id === invitee.id && !Config.dev_mode) {
         return SafeReply(intr, {
             embeds: [
                 ResponseEmbed()
@@ -65,157 +80,230 @@ export const InviteToTeam = async (intr: CommandInteraction<CacheType>): Promise
             ],
         });
     }
-    const userToInvite = intr.guild!.members.cache.find((usr) => usr.id === invitee.id)!;
 
-    const team = await FindOne<TeamType>(teamCollection, TeamByOwner(intr.user.id));
-    if (!team) {
-        return SafeReply(intr, NotTeamLeaderResponse());
-    }
-
-    if (team.members.length + 1 >= Config.teams.max_team_size)
-        return SafeReply(intr, TeamFullResponse());
-
-    // try sending the invite to the user's DM
-    const inviteEmbed = ResponseEmbed()
-        .setTitle(":partying_face: You've Been Invited")
-        .setDescription(
-            [
-                `You've been invited to join Team ${team.name}'s noble quest to`,
-                `be the best there ever was at ${Config.bot_info.event_name}.`,
-                `This invite expires ${RelativeTime(Date.now())}.`,
-            ].join(" ")
+    let message: Message<boolean>;
+    const inviteDuration = Config.teams.invite_duration * 60_000;
+    const inviteID = `${Date.now()}#${inviteTo.stdName}`;
+    const result = await WithTransaction(async () => {
+        const inviteAdd = await FindAndUpdate<TeamType>(
+            teamCollection,
+            inviteTo,
+            {
+                $push: {invites: inviteID} as unknown as PushOperator<MongoDocument>,
+            },
+            true
         );
-
-    const duration = Config.teams.invite_duration * 60_000;
-    const acceptID = GetInviteId(team.stdName, "accept");
-    const declineID = GetInviteId(team.stdName, "decline");
-    const buttonRow = new MessageActionRow().addComponents(
-        new MessageButton()
-            .setStyle(MessageButtonStyles.SECONDARY)
-            .setLabel("Decline")
-            .setCustomId(declineID),
-        new MessageButton()
-            .setStyle(MessageButtonStyles.PRIMARY)
-            .setLabel("Accept")
-            .setCustomId(acceptID)
-    );
-
-    let message: Message;
-    try {
-        message = await userToInvite.send({
-            embeds: [inviteEmbed],
-            components: [buttonRow],
-        });
-    } catch (err) {
-        // if we caught something that isn't an API error, or is not code
-        // 50007 (user not accepting DMs), throw generic error
-        if (!(err instanceof DiscordAPIError) || err.httpStatus != 403) {
-            return SafeReply(intr, GenericError());
+        if (!inviteAdd) {
+            return false;
         }
 
-        // cannot send DMs to this user, report that failure
-        return SafeReply(intr, {
-            ephemeral: true,
-            embeds: [
-                ResponseEmbed()
-                    .setTitle(":x: Cannot Invite User")
-                    .setDescription(
-                        `This user is not allowing DMs from this server. Ask them to temporarily ${hyperlink(
-                            "enable them",
-                            "https://support.discord.com/hc/en-us/articles/217916488-Blocking-Privacy-Settings-"
-                        )}, then try again.`
-                    ),
-            ],
-        });
-    }
+        try {
+            const buttonRow = new MessageActionRow().setComponents(
+                new MessageButton()
+                    .setStyle(MessageButtonStyles.SECONDARY)
+                    .setCustomId(`decline#${inviteID}`)
+                    .setLabel("Decline"),
+                new MessageButton()
+                    .setStyle(MessageButtonStyles.PRIMARY)
+                    .setCustomId(`accept#${inviteID}`)
+                    .setLabel("Accept")
+            );
+            const inviteMsg = ResponseEmbed()
+                .setTitle(":partying_face: You've Been Invited")
+                .setDescription(
+                    [
+                        `You've been invited to join Team ${inviteTo.name}'s noble quest to`,
+                        `be the best there ever was at ${Config.bot_info.event_name}.`,
+                        `This invite expires ${Timestamp(
+                            Date.now() + inviteDuration,
+                            TimestampStyles.LongDateTime
+                        )}.`,
+                    ].join(" ")
+                );
+            message = await intr.user.send({
+                embeds: [inviteMsg],
+                components: [buttonRow],
+            });
+        } catch (err) {
+            return false;
+        }
 
-    if (!invitee.dmChannel) {
+        return true;
+    });
+
+    const collector = intr.user.dmChannel!.createMessageComponentCollector({
+        componentType: "BUTTON", // only accept button events
+        max: 1, // makes the collector terminate after the first button is clicked.
+        time: inviteDuration, // invite_duration from minutes to ms
+    });
+
+    // message send failed or something
+    if (!result) {
         return SafeReply(intr, GenericError());
     }
 
-    const eventFilter = (i: MessageComponentInteraction<"cached">) =>
-        i.customId === acceptID || i.customId === declineID;
+    // NOTE: invitee.dmChannel?.awaitMessageComponent() is a thing. Look into it
 
-    const eventCollector = invitee.dmChannel.createMessageComponentCollector({
-        filter: eventFilter,
-        time: duration,
+    collector.on("end", async (col, rsn) => {
+        await HandleCollectorTimeout(col, rsn, inviteID);
+    });
+    collector.on("collect", async (buttonIntr) => {
+        if (buttonIntr.customId.startsWith("accept")) {
+            await HandleOfferAccept(buttonIntr, intr.guild!);
+        } else {
+            await HandleOfferDecline(buttonIntr);
+        }
     });
 
-    eventCollector.on("collect", OnCollectorCollect);
-    eventCollector.on("end", () => {
-        HandleMessageExpiration(message, team);
-    });
-
+    // invite success
     return SafeReply(intr, {
         embeds: [
             ResponseEmbed()
                 .setTitle(":white_check_mark: Invite Sent")
-                .setDescription(`${userToInvite.displayName} has been invited.`),
+                .setDescription(
+                    `${
+                        intr.guild!.members.cache.get(invitee.id)!.displayName
+                    } has been invited.`
+                ),
         ],
     });
 };
 
-const OnCollectorCollect = async (intr: MessageComponentInteraction<CacheType>) => {
-    const {action} = ParseInviteId(intr.customId);
+const HandleOfferAccept = async (
+    intr: MessageComponentInteraction<CacheType>,
+    guild: Guild
+) => {
+    const inviteID = intr.customId.split("#").slice(1).join("#");
 
-    if (action === "accept") {
-        await HandleOfferAccept(intr);
-    } else {
-        await HandleOfferDecline(intr);
-    }
+    const res = await WithTransaction(async () => {
+        const sizeGroup = [];
+        for (let i = 0; i < Config.teams.max_team_size - 1; i++) {
+            sizeGroup.push({members: {$size: i}});
+        }
 
-    intr.deferUpdate();
-};
+        const team = await FindOne<TeamType>(teamCollection, {
+            invites: inviteID,
+            $or: sizeGroup,
+        });
 
-const HandleOfferAccept = async (intr: MessageComponentInteraction<CacheType>) => {
-    const {teamName} = ParseInviteId(intr.customId);
-    const existingTeam = await FindOne<TeamType>(
-        teamCollection,
-        TeamByMember(intr.user.id, true)
-    );
+        if (!team) {
+            return false;
+        }
 
-    let response;
-    if (existingTeam) {
-        response = ResponseEmbed()
-            .setTitle(":x: You Can't Join Another Team")
-            .setDescription(
-                [
-                    "Sorry, you're only allowed to be in one team at a time.",
-                    "You can leave your current team with `/team leave`.",
-                ].join(" ")
-            );
-    } else {
-        const team = FindOne<TeamType>(teamCollection, TeamByName(teamName));
-        response = ResponseEmbed()
-            .setTitle(`:partying_face: You're now a member of Team ${teamName}`)
-            .setDescription(`You accepted the invite ${RelativeTime(Date.now())}.`);
-    }
-    return (intr.message as Message<boolean>).edit({
-        embeds: [response],
-        components: [],
+        const updatedTeam = {...team};
+        updatedTeam.members.push(intr.user.id);
+
+        if (!(await FindAndUpdate(teamCollection, team, updatedTeam))) {
+            return false;
+        }
+
+        // TODO: update permissions
+        const vc = guild.channels.cache.get(team.voiceChannel)! as GuildChannel;
+        const tc = guild.channels.cache.get(team.textChannel)! as GuildChannel;
+
+        const oldPerms = vc.permissionOverwrites;
+        oldPerms.
+
+        const msg = intr.message as Message<boolean>;
+        if (!msg.editable) {
+            return false;
+        }
+
+        try {
+            msg.edit({
+                embeds: [
+                    ResponseEmbed()
+                        .setTitle("Invite Accepted")
+                        .setDescription(
+                            `You accepted this invite ${Timestamp(Date.now())}.`
+                        ),
+                ],
+                components: [],
+            });
+        } catch (_) {
+            return false;
+        }
+
+        return true;
     });
+
+    if (!res) {
+        SafeReply(intr, {
+            embeds: [
+                ResponseEmbed()
+                    .setTitle(":x: Operation Failed")
+                    .setDescription(
+                        "Something unexpected happened while trying to accept this invite. The team may be full."
+                    ),
+            ],
+        });
+    } else {
+        intr.deferUpdate();
+    }
 };
 
 const HandleOfferDecline = async (intr: MessageComponentInteraction<CacheType>) => {
-    const {teamName} = ParseInviteId(intr.customId);
-    const response = ResponseEmbed()
-        .setTitle(":confused: Invite Declined")
-        .setDescription(
-            `You declined to join Team ${teamName} ${RelativeTime(Date.now())}.`
-        );
-    return await (intr.message as Message<boolean>).edit({
-        embeds: [response],
-        components: [],
+    const inviteID = intr.customId.split("#").slice(1).join("#");
+
+    const res = await WithTransaction(async () => {
+        if (
+            !(await FindAndUpdate(
+                teamCollection,
+                {invites: inviteID},
+                {
+                    // remove invite ID
+                    $pull: {invites: inviteID} as unknown as PullOperator<Document>,
+                }
+            ))
+        ) {
+            console.log("Update failed");
+            return false;
+        }
+
+        const msg = intr.message as Message<boolean>;
+        if (!msg.editable) {
+            return false;
+        }
+
+        try {
+            msg.edit({
+                embeds: [
+                    ResponseEmbed()
+                        .setTitle("Invite Declined")
+                        .setDescription(
+                            `You declined this invite ${Timestamp(Date.now())}.`
+                        ),
+                ],
+                components: [],
+            });
+        } catch (_) {
+            return false;
+        }
+
+        return true;
     });
+
+    if (!res) {
+        SafeReply(intr, GenericError());
+    } else {
+        intr.deferUpdate();
+    }
 };
 
-const HandleMessageExpiration = (msg: Message, team: TeamType) => {
-    const expired = ResponseEmbed()
-        .setTitle(":confused: Invite Expired")
-        .setDescription(
-            `Your invite to join ${team.name} expired ${RelativeTime(
-                Date.now()
-            )}. You can ask the team leader for another.`
-        );
-    msg.edit({embeds: [expired], components: []});
+const HandleMessageExpiration = async (inviteID: string) => {
+    await FindAndUpdate(
+        teamCollection,
+        {invites: inviteID},
+        {$pull: {invites: inviteID} as unknown as PullOperator<Document>}
+    );
+};
+
+const HandleCollectorTimeout = async (
+    _: Collection<string, ButtonInteraction<CacheType>>,
+    reason: string,
+    inviteID: string
+) => {
+    if (reason === "time") {
+        await HandleMessageExpiration(inviteID);
+    }
 };
