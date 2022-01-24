@@ -68,7 +68,7 @@ const unverifyModule: CommandType = {
 
         if (res) {
             return SafeReply(intr, {
-                embeds: SuccessResponse("You're now verified.").embeds,
+                embeds: SuccessResponse("You're no longer verified.").embeds,
                 ephemeral: true,
             });
         } else {
