@@ -57,9 +57,7 @@ const verifyModule: CommandType = {
                 embeds: [
                     ResponseEmbed()
                         .setTitle(":fire: Already Verified")
-                        .setDescription(
-                            "You're already verified. Use the `update` option if you'd like to change your email."
-                        ),
+                        .setDescription("You're already verified."),
                 ],
             });
         }
