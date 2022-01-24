@@ -49,6 +49,7 @@ export type VerifiedUserType = {
 };
 
 export type CardInfoType = {
+    authorizedCard: boolean;
     firstName?: string;
     lastName?: string;
     pronouns?: string;

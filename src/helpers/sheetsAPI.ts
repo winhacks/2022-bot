@@ -79,6 +79,7 @@ export const GetUserData = async (
 ): Promise<CardInfoType> => {
     const rowData = await GetRow(target_id, target_sheet, row);
     return {
+        authorizedCard: rowData[15] === "TRUE",
         firstName: rowData[0],
         lastName: rowData[1],
         pronouns: rowData[6],
