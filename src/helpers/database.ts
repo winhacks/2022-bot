@@ -34,6 +34,10 @@ export const AuthenticateMongo = async () => {
 };
 
 export const GetClient = async (name: string) => {
+    if (Config.dev_mode) {
+        name += "_development";
+    }
+
     // try cache
     const cached = collectionCache.get(name);
     if (cached) {
