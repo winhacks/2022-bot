@@ -22,7 +22,10 @@ const unverifyModule: CommandType = {
         .setDescription("Unverify yourself. You'll need to `/verify` again."),
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
         if (!intr.inGuild()) {
-            return SafeReply(intr, NotInGuildResponse());
+            return SafeReply(intr, {
+                embeds: NotInGuildResponse().embeds,
+                ephemeral: true,
+            });
         }
 
         const guild = intr.guild!;
@@ -41,6 +44,7 @@ const unverifyModule: CommandType = {
                             "You're not verified yet. Did you mean to use `/verify`?"
                         ),
                 ],
+                ephemeral: true,
             });
         }
 
@@ -63,9 +67,12 @@ const unverifyModule: CommandType = {
         });
 
         if (res) {
-            return SafeReply(intr, SuccessResponse("You've been un-verified."));
+            return SafeReply(intr, {
+                embeds: SuccessResponse("You're now verified.").embeds,
+                ephemeral: true,
+            });
         } else {
-            return SafeReply(intr, GenericError());
+            return SafeReply(intr, {embeds: GenericError().embeds, ephemeral: true});
         }
     },
 };

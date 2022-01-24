@@ -45,7 +45,10 @@ const verifyModule: CommandType = {
 
         // ensure command running in guild
         if (!intr.inGuild()) {
-            return SafeReply(intr, NotInGuildResponse());
+            return SafeReply(intr, {
+                embeds: NotInGuildResponse().embeds,
+                ephemeral: true,
+            });
         }
 
         // check if user is already verified
@@ -59,6 +62,7 @@ const verifyModule: CommandType = {
                         .setTitle(":fire: Already Verified")
                         .setDescription("You're already verified."),
                 ],
+                ephemeral: true,
             });
         }
 
@@ -72,6 +76,7 @@ const verifyModule: CommandType = {
                             "That doesn't appear to be a valid email address."
                         ),
                 ],
+                ephemeral: true,
             });
         }
 
@@ -97,6 +102,7 @@ const verifyModule: CommandType = {
                             )}.`
                         ),
                 ],
+                ephemeral: true,
             });
         }
 
@@ -114,10 +120,13 @@ const verifyModule: CommandType = {
 
         if (!result) {
             logger.info(`Error verifying "${PrettyUser(intr.user)}" with ${email}`);
-            return SafeReply(intr, GenericError());
+            return SafeReply(intr, {embeds: GenericError().embeds, ephemeral: true});
         } else {
             logger.info(`Verified "${PrettyUser(intr.user)}" with ${email}`);
-            return SafeReply(intr, SuccessResponse("You are now verified."));
+            return SafeReply(intr, {
+                embeds: SuccessResponse("You are now verified.").embeds,
+                ephemeral: true,
+            });
         }
     },
 };
