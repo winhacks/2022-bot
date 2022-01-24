@@ -7,6 +7,7 @@ import {
     MessagePayload,
 } from "discord.js";
 import {Config} from "../config";
+import {logger} from "../logger";
 
 // UTILITIES ------------------------------------------------------------------
 
@@ -21,12 +22,28 @@ export const SafeReply = (
     intr: CommandInteraction<CacheType> | MessageComponentInteraction,
     reply: string | MessagePayload | InteractionReplyOptions
 ) => {
-    if (intr.replied) {
-        return intr.followUp(reply);
-    } else if (intr.deferred) {
-        return intr.editReply(reply);
+    try {
+        if (!intr) {
+            logger.error("False interaction provided");
+            return undefined;
+        }
+        if (intr.replied) {
+            return intr.followUp(reply);
+        } else if (intr.deferred) {
+            return intr.editReply(reply);
+        } else {
+            return intr.reply(reply);
+        }
+    } catch (err) {
+        logger.error(`Reply failed: ${err}`);
+    }
+};
+
+export const SafeDeferReply = async (intr: CommandInteraction<CacheType>) => {
+    if (intr.deferred || intr.replied) {
+        return;
     } else {
-        return intr.reply(reply);
+        return intr.deferReply();
     }
 };
 

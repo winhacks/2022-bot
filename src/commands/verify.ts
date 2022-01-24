@@ -1,30 +1,34 @@
 import {
     hyperlink,
+    SlashCommandBooleanOption,
     SlashCommandBuilder,
     SlashCommandStringOption,
 } from "@discordjs/builders";
-import {CacheType, Collection, CommandInteraction, MessageEmbed} from "discord.js";
+import {CacheType, Collection, CommandInteraction, Guild, GuildMember} from "discord.js";
 import {Config} from "../config";
-import {InsertOne, verifiedCollection} from "../helpers/database";
-import {GetDefault} from "../helpers/misc";
+import {
+    FindAndRemove,
+    FindAndUpdate,
+    FindOne,
+    InsertOne,
+    verifiedCollection,
+    WithTransaction,
+} from "../helpers/database";
+import {PrettyUser} from "../helpers/misc";
 import {
     GenericError,
     ResponseEmbed,
     SafeReply,
     SuccessResponse,
 } from "../helpers/responses";
-import {GetColumn, GetRow} from "../helpers/sheetsAPI";
+import {GetColumn, GetUserData} from "../helpers/sheetsAPI";
 import {logger} from "../logger";
-import {CommandType, VerifiedUserType} from "../types";
+import {CardInfoType, CommandType, VerifiedUserType} from "../types";
 import {NotInGuildResponse} from "./team/team-shared";
 
 // source: https://www.emailregex.com/ (apparently 99.99% accurate)
 const emailRegex =
     /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-
-let verifyCache: Collection<string, boolean> = new Collection<string, boolean>();
-
-// TODO: store user data in database, provided they give consent
 
 const verifyModule: CommandType = {
     data: new SlashCommandBuilder() //
@@ -39,9 +43,29 @@ const verifyModule: CommandType = {
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
         const email = intr.options.getString("email", true);
 
+        // ensure command running in guild
         if (!intr.inGuild()) {
             return SafeReply(intr, NotInGuildResponse());
-        } else if (!email.match(emailRegex)) {
+        }
+
+        // check if user is already verified
+        const existingUser = await FindOne<VerifiedUserType>(verifiedCollection, {
+            userID: intr.user.id,
+        });
+        if (existingUser) {
+            return SafeReply(intr, {
+                embeds: [
+                    ResponseEmbed()
+                        .setTitle(":fire: Already Verified")
+                        .setDescription(
+                            "You're already verified. Use the `update` option if you'd like to change your email."
+                        ),
+                ],
+            });
+        }
+
+        // ensure email is valid
+        if (!email.match(emailRegex)) {
             return SafeReply(intr, {
                 embeds: [
                     ResponseEmbed()
@@ -59,35 +83,11 @@ const verifyModule: CommandType = {
             Config.verify.target_sheet,
             Config.verify.email_column
         );
-        let emailIndex = emailColumn.indexOf(email);
+        let emailIndex = emailColumn.lastIndexOf(email);
 
-        // check cache & update if needed. Short-circuit if user is already verified.
-        let verified: boolean = GetDefault(verifyCache, email, false);
-        if (verified) {
-            const alreadyVerified = ResponseEmbed()
-                .setTitle(":fire: Already Verified")
-                .setDescription("You're already verified.");
-            return SafeReply(intr, {embeds: [alreadyVerified]});
-        } else {
-            verified = emailIndex !== -1;
-            verifyCache.set(email, verified);
-        }
-
-        // handle verification result
-        if (verified) {
-            const userData = await GetRow(
-                Config.verify.target_sheet,
-                Config.verify.target_sheet_id,
-                1 + emailIndex
-            );
-            const result = await VerifyUser(intr, email, userData);
-            if (!result) {
-                return SafeReply(intr, GenericError());
-            }
-
-            logger.info(`Verified ${intr.user.username} with email ${email}`);
-            return SafeReply(intr, SuccessResponse("You are now verified."));
-        } else {
+        // email not in column, this user should not be verified
+        if (emailIndex === -1) {
+            logger.info(`Unable to verify "${PrettyUser(intr.user)}" with ${email}`);
             return SafeReply(intr, {
                 embeds: [
                     ResponseEmbed()
@@ -101,22 +101,64 @@ const verifyModule: CommandType = {
                 ],
             });
         }
+
+        // verify user
+        const result = await DoVerifyUser(
+            intr.guild!,
+            intr.member as GuildMember,
+            email,
+            await GetUserData(
+                Config.verify.target_sheet_id,
+                Config.verify.target_sheet,
+                1 + emailIndex
+            )
+        );
+
+        if (!result) {
+            logger.info(`Error verifying "${PrettyUser(intr.user)}" with ${email}`);
+            return SafeReply(intr, GenericError());
+        } else {
+            logger.info(`Verified "${PrettyUser(intr.user)}" with ${email}`);
+            return SafeReply(intr, SuccessResponse("You are now verified."));
+        }
     },
 };
 
-const VerifyUser = async (
-    intr: CommandInteraction<CacheType>,
+const DoVerifyUser = async (
+    guild: Guild,
+    member: GuildMember,
     email: string,
-    userData: string[]
+    userData: CardInfoType
 ): Promise<boolean> => {
-    const verifiedUser: VerifiedUserType = {
-        userID: intr.user.id,
-        verifiedAt: Date.now(),
-        email: email,
-        infoCollectionConsent: false,
-    };
+    return WithTransaction(async () => {
+        const verifiedUser: VerifiedUserType = {
+            userID: member.id,
+            verifiedAt: Date.now(),
+            email: email,
+            cardInfo: userData,
+        };
 
-    return InsertOne<VerifiedUserType>(verifiedCollection, verifiedUser);
+        if (Config.verify.verified_role_name) {
+            const verRole = guild.roles.cache.findKey(
+                (r) => r.name === Config.verify.verified_role_name
+            );
+
+            if (verRole) {
+                member.roles.add(verRole);
+            } else {
+                return false;
+            }
+        }
+
+        // replace an existing user with this ID, or create a new one
+        return FindAndUpdate<VerifiedUserType>(
+            verifiedCollection,
+            {userID: member.id},
+            {$set: verifiedUser},
+            true, // required
+            true // create if not existing
+        );
+    });
 };
 
 export {verifyModule as command};

@@ -1,5 +1,5 @@
 import {TimestampStyles, TimestampStylesString} from "@discordjs/builders";
-import {Collection} from "discord.js";
+import {Collection, User} from "discord.js";
 
 export const Remove = (collection: Array<any>, element: any): Array<any> => {
     return collection.filter((e) => e !== element);
@@ -10,6 +10,10 @@ export const Timestamp = (
     mode: TimestampStylesString = TimestampStyles.RelativeTime
 ) => {
     return `<t:${Math.floor(time / 1000)}:${mode}>`;
+};
+
+export const PrettyUser = (usr: User) => {
+    return `${usr.username}#${usr.discriminator}`;
 };
 
 export const ChannelLink = (id: string) => `<#${id}>`;

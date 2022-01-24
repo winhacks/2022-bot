@@ -70,9 +70,7 @@ const LoadConfig = (file: string) => {
     Config = JSON.parse(data) as ConfigType;
 
     Config.bot_info.embedColor = Number.parseInt(Config.bot_info.color.slice(1), 16);
-
     logger.level = Config.dev_mode ? "debug" : "info";
-    logger.debug(Config);
 };
 
 export {Config, LoadConfig, ConfigType};

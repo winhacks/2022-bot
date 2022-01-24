@@ -45,15 +45,19 @@ export type VerifiedUserType = {
     userID: string;
     verifiedAt: number;
     email: string;
-
-    // if this is true, everything below this comment must at least be defined
-    infoCollectionConsent: boolean;
-    cardInfo?: CardInfoType;
+    cardInfo: CardInfoType;
 };
 
 export type CardInfoType = {
+    firstName?: string;
+    lastName?: string;
+    pronouns?: string;
     github?: string;
+    website?: string;
+    resume?: string;
     linkedIn?: string;
     studyArea?: string;
     studyLocation?: string;
+    phone?: string;
+    email?: string;
 };

@@ -1,5 +1,7 @@
 import {google} from "googleapis";
 import {Config} from "../config";
+import {logger} from "../logger";
+import {CardInfoType} from "../types";
 
 export type MajorDimension = "ROWS" | "COLUMNS";
 
@@ -16,24 +18,24 @@ export const AuthenticateGoogleAPI = async () => {
     google.options({auth: client});
 };
 
-export const BuildRange = (sheetNumber: string, startCell: string, endCell: string) => {
-    return `${sheetNumber}!${startCell}:${endCell}`;
+export const BuildRange = (sheet: string, startCell: string, endCell: string) => {
+    return `${sheet}!${startCell}:${endCell}`;
 };
 
 /**
  * Gets data from `target`
- * @param target the ID of the sheet to read from
+ * @param target_id the ID of the sheet to read from
  * @param range the range of cells to read
  * @param major the major dimension. When ROWS, the data is returned as an array of rows (cols => array of cols)
  * @returns a response from the Sheets API containing the data
  */
 export const GetRange = async (
-    target: string,
+    target_id: string,
     range: string,
     major: MajorDimension = "ROWS"
 ) =>
     sheets.values.get({
-        spreadsheetId: target,
+        spreadsheetId: target_id,
         range: range,
         majorDimension: major,
     });
@@ -68,4 +70,25 @@ export const GetRow = async (
 ): Promise<string[]> => {
     const range = BuildRange(target_sheet, `${row}`, `${row}`);
     return (await GetRange(target_id, range, "ROWS")).data.values![0];
+};
+
+export const GetUserData = async (
+    target_id: string,
+    target_sheet: string,
+    row: number | string
+): Promise<CardInfoType> => {
+    const rowData = await GetRow(target_id, target_sheet, row);
+    return {
+        firstName: rowData[0],
+        lastName: rowData[1],
+        pronouns: rowData[6],
+        github: rowData[11],
+        linkedIn: rowData[10],
+        website: rowData[12],
+        resume: rowData[13],
+        studyArea: rowData[7],
+        studyLocation: rowData[4],
+        phone: rowData[2],
+        email: rowData[3],
+    };
 };

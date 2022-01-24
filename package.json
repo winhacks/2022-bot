@@ -8,7 +8,8 @@
     "license": "MIT",
     "private": false,
     "scripts": {
-        "start": "ts-node ./src/index.ts"
+        "start": "ts-node ./src/index.ts",
+        "start-pretty": "ts-node ./src/index.ts | pino-pretty"
     },
     "prettier": {
         "tabWidth": 4,

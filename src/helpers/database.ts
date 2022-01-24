@@ -107,13 +107,15 @@ export const FindAndReplace = async <T>(
 export const FindAndUpdate = async <T>(
     collection: string,
     find: T | Query,
-    update: UpdateFilter<Document>,
-    required?: boolean
+    update: UpdateFilter<Document> | Partial<T>,
+    required: boolean = false,
+    upsert?: boolean
 ): Promise<boolean> => {
     const db = await GetClient(collection);
 
-    const result = await db.findOneAndUpdate(find, update);
-    return !!result.ok && (!required || result.lastErrorObject?.updatedExisting);
+    let result = await db.updateOne(find, update, {upsert: upsert});
+
+    return !!result.acknowledged || !required;
 };
 
 export const FindAndUpdateAll = async <T>(

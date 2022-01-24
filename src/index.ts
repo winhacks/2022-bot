@@ -6,7 +6,7 @@ import {logger} from "./logger";
 import path from "path";
 import {readdirSync} from "fs";
 import {AuthenticateGoogleAPI} from "./helpers/sheetsAPI";
-import {GenericError, SafeReply} from "./helpers/responses";
+import {GenericError, SafeDeferReply, SafeReply} from "./helpers/responses";
 import {AuthenticateMongo} from "./helpers/database";
 
 const start = async () => {
@@ -21,8 +21,11 @@ const start = async () => {
 
     logger.info("Authenticating with APIs...");
     await client.login(Config.api_token);
+    logger.info("Discord: OK");
     await AuthenticateGoogleAPI();
+    logger.info("Sheets: OK");
     await AuthenticateMongo();
+    logger.info("Mongo: OK");
 
     /**
      * Load commands
@@ -37,17 +40,16 @@ const start = async () => {
         const filePath = path.format({root: "./commands/", name: file});
         const {command} = (await import(filePath)) as {command: CommandType};
 
-        logger.info(`Loaded ${filePath + ".ts"} as command`);
+        logger.info(`Loaded ${filePath} as command`);
         client.commands.set(command.data.name, command);
         commandsToRegister.push(command);
     }
 
-    let numReg = 0;
-    if (Config.dev_mode && Config.dev_guild) {
-        numReg = await RegisterCommands(commandsToRegister, Config.dev_guild);
-    } else {
-        numReg = await RegisterCommands(commandsToRegister, Config.prod_guild);
-    }
+    const guildID =
+        Config.dev_mode && Config.dev_guild //
+            ? Config.dev_guild
+            : Config.prod_guild;
+    let numReg = await RegisterCommands(commandsToRegister, guildID);
 
     /*
      * Interaction handler
@@ -55,17 +57,17 @@ const start = async () => {
     client.on("interactionCreate", async (intr: Interaction<CacheType>) => {
         // command dispatcher
         if (intr.isCommand()) {
-            await intr.deferReply();
-
-            const command = client.commands.get(intr.commandName) as CommandType;
+            const command = client.commands.get(intr.commandName);
             if (!command) {
                 SafeReply(intr, GenericError());
+                return;
             }
 
             try {
+                await SafeDeferReply(intr);
                 await command.execute(intr);
-            } catch (error) {
-                logger.error(error);
+            } catch (err) {
+                logger.error(err);
                 SafeReply(intr, GenericError());
             }
         }
@@ -75,7 +77,7 @@ const start = async () => {
 };
 
 // node ignores sigint for some reason
-process.on("SIGINT", async (sig) => {
+process.on("SIGINT", (sig) => {
     process.exit();
 });
 

@@ -202,7 +202,6 @@ const HandleOfferAccept = async (
         const tc = guild.channels.cache.get(team.textChannel)! as GuildChannel;
 
         const oldPerms = vc.permissionOverwrites;
-        oldPerms.
 
         const msg = intr.message as Message<boolean>;
         if (!msg.editable) {
