@@ -1,5 +1,6 @@
 import {SlashCommandBuilder} from "@discordjs/builders";
 import {CacheType, CommandInteraction} from "discord.js";
+import {SafeReply} from "../helpers/responses";
 import {CommandType} from "../types";
 
 // FINISHED
@@ -10,7 +11,7 @@ const pingModule: CommandType = {
         .setDescription("Ping. Pong?"),
 
     execute: async (intr: CommandInteraction<CacheType>) => {
-        return intr.reply("Pong!");
+        return SafeReply(intr, "PONG!");
     },
 };
 

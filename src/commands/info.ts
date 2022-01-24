@@ -1,7 +1,7 @@
 import {SlashCommandBuilder} from "@discordjs/builders";
 import {CacheType, CommandInteraction, MessageEmbed} from "discord.js";
 import {Config} from "../config";
-import {ResponseEmbed} from "../helpers/responses";
+import {ResponseEmbed, SafeReply} from "../helpers/responses";
 import {CommandType} from "../types";
 
 // FINISHED
@@ -11,7 +11,7 @@ const infoModule: CommandType = {
         .setName("about")
         .setDescription("See information about the bot and its developer."),
 
-    execute: function (interaction: CommandInteraction<CacheType>) {
+    execute: async (interaction: CommandInteraction<CacheType>) => {
         const embed = ResponseEmbed()
             .setTitle(Config.bot_info.name)
             .setDescription(Config.bot_info.description);
@@ -22,7 +22,7 @@ const infoModule: CommandType = {
             embed.setThumbnail(Config.bot_info.thumbnail);
         }
 
-        return interaction.reply({embeds: [embed]});
+        return SafeReply(interaction, {embeds: [embed]});
     },
 };
 
