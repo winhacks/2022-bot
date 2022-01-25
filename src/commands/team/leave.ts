@@ -36,7 +36,7 @@ export const LeaveTeam = async (intr: CommandInteraction<CacheType>) => {
             : "";
     } else if (ownerLeaving) {
         const newOwner = team.members[team.members.length - 1];
-        let success = await PromoteUserOutcome(intr, team);
+        let success = await PromoteUserOutcome(team);
         message = success
             ? `You have left Team ${team.name} successfully. ${UserLink(newOwner)}, ` +
               `you're in charge. Try not to burn the place down.`
@@ -60,10 +60,7 @@ export const LeaveTeam = async (intr: CommandInteraction<CacheType>) => {
     }
 };
 
-const PromoteUserOutcome = async (
-    intr: CommandInteraction<CacheType>,
-    team: TeamType
-) => {
+const PromoteUserOutcome = async (team: TeamType) => {
     const newTeam = {...team};
     newTeam.owner = newTeam.members.pop()!;
 
@@ -71,25 +68,31 @@ const PromoteUserOutcome = async (
 };
 
 const DeleteTeamOutcome = async (intr: CommandInteraction<CacheType>, team: TeamType) => {
-    return WithTransaction(async () => {
+    return WithTransaction(async (session) => {
         const vc = await intr.guild!.channels.fetch(team.voiceChannel);
         const tc = await intr.guild!.channels.fetch(team.textChannel);
         const catId = vc ? vc.parentId : tc ? tc.parentId : null;
 
-        let category = await FindOne<CategoryType>(categoryCollection, {
-            category_id: catId,
-        });
+        let category = await FindOne<CategoryType>(
+            categoryCollection,
+            {
+                category_id: catId,
+            },
+            {session}
+        );
 
         if (!category) {
             return false;
         }
 
+        // TODO: replace with update
         category.team_count -= 1;
         if (
             !(await FindAndReplace<CategoryType>(
                 categoryCollection,
                 {category_id: category.category_id},
-                category
+                category,
+                {session}
             ))
         ) {
             return false;
@@ -100,7 +103,7 @@ const DeleteTeamOutcome = async (intr: CommandInteraction<CacheType>, team: Team
             tc?.delete("Team disbanded"),
         ]);
 
-        return FindAndRemove<TeamType>(teamCollection, team);
+        return FindAndRemove<TeamType>(teamCollection, team, {session});
     });
 };
 

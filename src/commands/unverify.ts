@@ -1,5 +1,5 @@
 import {SlashCommandBuilder} from "@discordjs/builders";
-import {CacheType, CommandInteraction, GuildMember} from "discord.js";
+import {CacheType, CommandInteraction, Guild, GuildMember} from "discord.js";
 import {Config} from "../config";
 import {
     FindAndRemove,
@@ -7,29 +7,27 @@ import {
     verifiedCollection,
     WithTransaction,
 } from "../helpers/database";
+import {PrettyUser} from "../helpers/misc";
 import {
     GenericError,
     ResponseEmbed,
     SafeReply,
     SuccessResponse,
 } from "../helpers/responses";
+import {logger} from "../logger";
 import {CommandType, VerifiedUserType} from "../types";
 import {NotInGuildResponse} from "./team/team-shared";
 
 const unverifyModule: CommandType = {
-    data: new SlashCommandBuilder() //
+    data: new SlashCommandBuilder()
         .setName("unverify")
-        .setDescription("Unverify yourself. You'll need to `/verify` again."),
+        .setDescription("Unverify yourself. You'll need to /verify again."),
+    ephemeral: true,
+
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
         if (!intr.inGuild()) {
-            return SafeReply(intr, {
-                embeds: NotInGuildResponse().embeds,
-                ephemeral: true,
-            });
+            return SafeReply(intr, NotInGuildResponse());
         }
-
-        const guild = intr.guild!;
-        const user = intr.member! as GuildMember;
 
         // check for existing user
         const existing = await FindOne<VerifiedUserType>(verifiedCollection, {
@@ -44,37 +42,54 @@ const unverifyModule: CommandType = {
                             "You're not verified yet. Did you mean to use `/verify`?"
                         ),
                 ],
-                ephemeral: true,
             });
         }
 
-        const res = await WithTransaction(async () => {
-            const remove = await FindAndRemove(verifiedCollection, {userID: user.id});
-            if (!remove) {
-                return false;
-            }
-
-            const verRole = guild.roles.cache.findKey(
-                (r) => r.name === Config.verify.verified_role_name
-            );
-
-            if (Config.verify.verified_role_name && !verRole) {
-                return false;
-            }
-
-            await user.roles.remove(verRole!);
-            return true;
-        });
+        const guild = intr.guild!;
+        const member = intr.member! as GuildMember;
+        const res = await HandleUnverify(guild, member);
 
         if (res) {
-            return SafeReply(intr, {
-                embeds: SuccessResponse("You're no longer verified.").embeds,
-                ephemeral: true,
-            });
+            logger.info(`Un-verified ${PrettyUser(intr.user)}`);
+            return SafeReply(intr, SuccessResponse("You're no longer verified."));
         } else {
-            return SafeReply(intr, {embeds: GenericError().embeds, ephemeral: true});
+            return SafeReply(intr, GenericError());
         }
     },
 };
 
+const HandleUnverify = async (guild: Guild, member: GuildMember) => {
+    return WithTransaction(async (session) => {
+        const remove = FindAndRemove(verifiedCollection, {userID: member.id}, {session});
+
+        // no role to take, stop here
+        if (!Config.verify.verified_role_name) {
+            return remove;
+        }
+
+        // try to remove role, await any errors
+        try {
+            const verRole = guild.roles.cache.findKey(
+                (r) => r.name === Config.verify.verified_role_name
+            );
+
+            // role not found
+            if (!verRole) {
+                throw new Error(`Role not found: ${Config.verify.verified_role_name}`);
+            }
+
+            await member.roles.remove(verRole);
+        } catch (err) {
+            logger.error(
+                `An error occurred while removing roles from ${PrettyUser(
+                    member.user
+                )}: ${err}`
+            );
+
+            return false;
+        }
+
+        return remove;
+    });
+};
 export {unverifyModule as command};

@@ -39,11 +39,14 @@ export const SafeReply = (
     }
 };
 
-export const SafeDeferReply = async (intr: CommandInteraction<CacheType>) => {
+export const SafeDeferReply = async (
+    intr: CommandInteraction<CacheType>,
+    ephemeral: boolean = false
+) => {
     if (intr.deferred || intr.replied) {
         return;
     } else {
-        return intr.deferReply();
+        return intr.deferReply({ephemeral: ephemeral});
     }
 };
 

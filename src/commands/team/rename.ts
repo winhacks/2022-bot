@@ -54,8 +54,10 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>) => {
     const newTeam = {...oldTeam};
     newTeam.name = newName;
 
-    const result = await WithTransaction(async (): Promise<boolean> => {
-        if (!(await FindAndReplace<TeamType>(teamCollection, oldTeam, newTeam))) {
+    const result = await WithTransaction(async (session): Promise<boolean> => {
+        if (
+            !(await FindAndReplace<TeamType>(teamCollection, oldTeam, newTeam, {session}))
+        ) {
             return false;
         }
 

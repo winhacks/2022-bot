@@ -11,16 +11,22 @@ import {AuthenticateMongo} from "./helpers/database";
 
 const start = async () => {
     logger.info("Loading config...");
-    LoadConfig("config.json");
+    LoadConfig("config.json5");
+
+    const dapiInfo = Config.dev_mode ? Config.development : Config.production;
 
     logger.info("Logging into Discord...");
     const client = new Client({
-        intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.DIRECT_MESSAGES],
+        intents: [
+            Intents.FLAGS.GUILDS,
+            Intents.FLAGS.DIRECT_MESSAGES,
+            // Intents.FLAGS.GUILD_MEMBERS,
+        ],
     }) as ClientType;
     client.commands = new Collection<string, CommandType>();
 
     logger.info("Authenticating with APIs...");
-    await client.login(Config.api_token);
+    await client.login(dapiInfo.api_token);
     logger.info("Discord: OK");
     await AuthenticateGoogleAPI();
     logger.info("Sheets: OK");
@@ -45,11 +51,12 @@ const start = async () => {
         commandsToRegister.push(command);
     }
 
-    const guildID =
-        Config.dev_mode && Config.dev_guild //
-            ? Config.dev_guild
-            : Config.prod_guild;
-    let numReg = await RegisterCommands(commandsToRegister, guildID);
+    let numReg = await RegisterCommands(
+        commandsToRegister,
+        dapiInfo.guild,
+        dapiInfo.api_token,
+        dapiInfo.app_id
+    );
 
     /*
      * Interaction handler
@@ -64,7 +71,7 @@ const start = async () => {
             }
 
             try {
-                await SafeDeferReply(intr);
+                await SafeDeferReply(intr, command.ephemeral);
                 await command.execute(intr);
             } catch (err) {
                 logger.error(err);
@@ -75,11 +82,6 @@ const start = async () => {
 
     logger.info(`Bot setup has finished: ${numReg} commands registered.`);
 };
-
-// node ignores sigint for some reason
-process.on("SIGINT", (sig) => {
-    process.exit();
-});
 
 // start bot
 start();

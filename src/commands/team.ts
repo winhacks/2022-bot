@@ -62,6 +62,7 @@ const teamModule: CommandType = {
                 .setName("leave")
                 .setDescription("Leave your current team.")
         ),
+    ephemeral: true,
 
     execute: async (interaction: CommandInteraction<CacheType>): Promise<any> => {
         const subcommand = interaction.options.getSubcommand();

@@ -1,15 +1,20 @@
 import {readFileSync} from "fs";
 import {logger} from "./logger";
+import {parse as parseJSON5} from "json5";
 
-type ConfigType = {
-    // shared config
+type ModeType = {
     api_token: string;
     app_id: string;
-    api_version: string;
     bot_uid: number;
+    guild: string;
+};
+
+type ConfigType = {
+    // discord API config
+    production: ModeType;
+    development: ModeType;
+
     dev_mode: boolean;
-    dev_guild: string;
-    prod_guild: string;
 
     // Google Sheets API config
     sheets_api: {
@@ -67,7 +72,7 @@ let Config: ConfigType;
 
 const LoadConfig = (file: string) => {
     const data = readFileSync(file, "utf-8");
-    Config = JSON.parse(data) as ConfigType;
+    Config = parseJSON5(data) as ConfigType;
 
     Config.bot_info.embedColor = Number.parseInt(Config.bot_info.color.slice(1), 16);
     logger.level = Config.dev_mode ? "debug" : "info";

@@ -1,18 +1,16 @@
 import {
-    BaseGuildVoiceChannel,
     ButtonInteraction,
     CacheType,
     Collection,
     CommandInteraction,
     Guild,
     GuildChannel,
-    GuildTextBasedChannel,
     Message,
     MessageActionRow,
     MessageButton,
     MessageComponentInteraction,
 } from "discord.js";
-import {Document, PullAllOperator, PullOperator, PushOperator} from "mongodb";
+import {Document, PullOperator, PushOperator} from "mongodb";
 import {Config} from "../../config";
 import {
     FindAndUpdate,
@@ -84,14 +82,14 @@ export const InviteToTeam = async (intr: CommandInteraction<CacheType>): Promise
     let message: Message<boolean>;
     const inviteDuration = Config.teams.invite_duration * 60_000;
     const inviteID = `${Date.now()}#${inviteTo.stdName}`;
-    const result = await WithTransaction(async () => {
+    const result = await WithTransaction(async (session) => {
         const inviteAdd = await FindAndUpdate<TeamType>(
             teamCollection,
             inviteTo,
             {
                 $push: {invites: inviteID} as unknown as PushOperator<MongoDocument>,
             },
-            true
+            {session}
         );
         if (!inviteAdd) {
             return false;
@@ -175,16 +173,21 @@ const HandleOfferAccept = async (
 ) => {
     const inviteID = intr.customId.split("#").slice(1).join("#");
 
-    const res = await WithTransaction(async () => {
+    const res = await WithTransaction(async (session) => {
         const sizeGroup = [];
         for (let i = 0; i < Config.teams.max_team_size - 1; i++) {
             sizeGroup.push({members: {$size: i}});
         }
 
-        const team = await FindOne<TeamType>(teamCollection, {
-            invites: inviteID,
-            $or: sizeGroup,
-        });
+        // TODO: replace this with a proper find and update. false indicates non-existent team, so that's the error condition
+        const team = await FindOne<TeamType>(
+            teamCollection,
+            {
+                invites: inviteID,
+                $or: sizeGroup,
+            },
+            {session}
+        );
 
         if (!team) {
             return false;
@@ -193,15 +196,13 @@ const HandleOfferAccept = async (
         const updatedTeam = {...team};
         updatedTeam.members.push(intr.user.id);
 
-        if (!(await FindAndUpdate(teamCollection, team, updatedTeam))) {
+        if (!(await FindAndUpdate(teamCollection, team, updatedTeam, {session}))) {
             return false;
         }
 
         // TODO: update permissions
         const vc = guild.channels.cache.get(team.voiceChannel)! as GuildChannel;
         const tc = guild.channels.cache.get(team.textChannel)! as GuildChannel;
-
-        const oldPerms = vc.permissionOverwrites;
 
         const msg = intr.message as Message<boolean>;
         if (!msg.editable) {
@@ -244,7 +245,7 @@ const HandleOfferAccept = async (
 const HandleOfferDecline = async (intr: MessageComponentInteraction<CacheType>) => {
     const inviteID = intr.customId.split("#").slice(1).join("#");
 
-    const res = await WithTransaction(async () => {
+    const res = await WithTransaction(async (session) => {
         if (
             !(await FindAndUpdate(
                 teamCollection,
@@ -252,7 +253,8 @@ const HandleOfferDecline = async (intr: MessageComponentInteraction<CacheType>) 
                 {
                     // remove invite ID
                     $pull: {invites: inviteID} as unknown as PullOperator<Document>,
-                }
+                },
+                {session}
             ))
         ) {
             console.log("Update failed");

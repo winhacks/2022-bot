@@ -1,0 +1,71 @@
+{
+    // production client information
+    production: {
+        app_id: "",
+        api_token: "",
+        bot_uid: 8,
+        guild: "",
+    },
+
+    // development client information
+    development: {
+        app_id: "",
+        api_token: "",
+        bot_uid: 8,
+        guild: "",
+    },
+
+    // should the bot be in development mode?
+    dev_mode: true,
+
+    // sheets API config
+    sheets_api: {
+        scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+        private_key: "",
+        client_email: "",
+    },
+
+    // MongoDB API config
+    mongo_db: {
+        database_url: "",
+        certificate: "",
+        private_key: "",
+    },
+
+    // information for the /about command, and `color` dictates the bot embed color
+    bot_info: {
+        name: "",
+        color: "#14c3a2", // any hex colour code without alpha
+        event_name: "WinHacks 2022",
+        title_url: "",
+        thumbnail: "",
+        description: "An open-source Discord Bot written in TypeScript with Discord.JS by [Isaac Kilbourne](https://kilbouri.github.io) and published under the MIT license for WinHacks 2022",
+    },
+
+    // config for the /verify and /unverify commands
+    verify: {
+        registration_url: "",
+        target_sheet_id: "",
+        target_sheet: "",
+        email_column: "A",
+        verified_role_name: "Verified",
+    },
+
+    // /team and subcommand config
+    teams: {
+        database_name: "botDB",
+        max_name_length: 20,
+        invite_duration: 5,
+        max_team_size: 4,
+        teams_per_category: 25,
+        category_base_name: "Teams",
+    },
+
+    // social links. First letter of key becomes capitalized and name hyperlinks to value
+    socials: {
+        twitter: "https://twitter.com/YourTwitter",
+        facebook: "https://facebook.com/YourFacebook",
+        linkedIn: "https://linkedin.com/company/YourCompany",
+        instagram: "https://instagram.com/YourInstagram",
+    },
+}

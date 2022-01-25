@@ -10,6 +10,7 @@ export interface CommandType {
         | SlashCommandBuilder
         | SlashCommandSubcommandsOnlyBuilder
         | Omit<SlashCommandBuilder, "addSubcommandGroup" | "addSubcommand">;
+    ephemeral?: boolean;
     execute: (interaction: CommandInteraction<CacheType>) => Promise<any>;
 }
 

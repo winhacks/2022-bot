@@ -40,15 +40,13 @@ const verifyModule: CommandType = {
                 .setDescription("The email you registered with")
                 .setRequired(true)
         ),
+    ephemeral: true,
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
         const email = intr.options.getString("email", true);
 
         // ensure command running in guild
         if (!intr.inGuild()) {
-            return SafeReply(intr, {
-                embeds: NotInGuildResponse().embeds,
-                ephemeral: true,
-            });
+            return SafeReply(intr, NotInGuildResponse());
         }
 
         // check if user is already verified
@@ -62,7 +60,6 @@ const verifyModule: CommandType = {
                         .setTitle(":fire: Already Verified")
                         .setDescription("You're already verified."),
                 ],
-                ephemeral: true,
             });
         }
 
@@ -76,7 +73,6 @@ const verifyModule: CommandType = {
                             "That doesn't appear to be a valid email address."
                         ),
                 ],
-                ephemeral: true,
             });
         }
 
@@ -90,7 +86,6 @@ const verifyModule: CommandType = {
 
         // email not in column, this user should not be verified
         if (emailIndex === -1) {
-            logger.info(`Unable to verify "${PrettyUser(intr.user)}" with ${email}`);
             return SafeReply(intr, {
                 embeds: [
                     ResponseEmbed()
@@ -102,7 +97,6 @@ const verifyModule: CommandType = {
                             )}.`
                         ),
                 ],
-                ephemeral: true,
             });
         }
 
@@ -118,15 +112,26 @@ const verifyModule: CommandType = {
             )
         );
 
-        if (!result) {
-            logger.info(`Error verifying "${PrettyUser(intr.user)}" with ${email}`);
-            return SafeReply(intr, {embeds: GenericError().embeds, ephemeral: true});
-        } else {
+        if (result) {
             logger.info(`Verified "${PrettyUser(intr.user)}" with ${email}`);
-            return SafeReply(intr, {
-                embeds: SuccessResponse("You are now verified.").embeds,
-                ephemeral: true,
-            });
+            if (intr.user.id !== intr.guild?.ownerId) {
+                return SafeReply(intr, SuccessResponse("You are now verified."));
+            } else {
+                logger.warn(
+                    `${PrettyUser(
+                        intr.user
+                    )} is the guild owner, asking them to update their nick manually.`
+                );
+                return SafeReply(
+                    intr,
+                    SuccessResponse(
+                        `You are now verified. As the guild owner, you'll need to change your ${"\
+                        "}nickname to your real name manually. Ask the Discord developers why, not me.`
+                    )
+                );
+            }
+        } else {
+            return SafeReply(intr, GenericError());
         }
     },
 };
@@ -137,7 +142,7 @@ const DoVerifyUser = async (
     email: string,
     userData: CardInfoType
 ): Promise<boolean> => {
-    return WithTransaction(async () => {
+    return WithTransaction(async (session) => {
         const verifiedUser: VerifiedUserType = {
             userID: member.id,
             verifiedAt: Date.now(),
@@ -145,26 +150,57 @@ const DoVerifyUser = async (
             cardInfo: userData,
         };
 
-        if (Config.verify.verified_role_name) {
-            const verRole = guild.roles.cache.findKey(
-                (r) => r.name === Config.verify.verified_role_name
-            );
-
-            if (verRole) {
-                member.roles.add(verRole);
-            } else {
-                return false;
-            }
-        }
-
-        // replace an existing user with this ID, or create a new one
-        return FindAndUpdate<VerifiedUserType>(
+        const dbUpdate = FindAndUpdate<VerifiedUserType>(
             verifiedCollection,
             {userID: member.id},
             {$set: verifiedUser},
-            true, // required
-            true // create if not existing
+            {session}
         );
+
+        // no role to add, stop here
+        if (!Config.verify.verified_role_name) {
+            return dbUpdate;
+        }
+
+        // look up the role
+        const verRole = guild.roles.cache.findKey(
+            (r) => r.name === Config.verify.verified_role_name
+        );
+
+        // try to update role, catch any error and cancel transaction
+        let nicked = false;
+        try {
+            // role not found, that's an error
+            if (!verRole) {
+                throw new Error(`Role not found: ${Config.verify.verified_role_name}`);
+            }
+
+            // await completion to ensure no error occurs
+            if (member.id !== guild.ownerId) {
+                await member.setNickname(`${userData.firstName} ${userData.lastName}`);
+            }
+            nicked = true;
+
+            await member.roles.add(verRole);
+        } catch (err) {
+            if (nicked) {
+                logger.error(
+                    `An error occurred while updating ${PrettyUser(
+                        member.user
+                    )}'s roles: ${err}`
+                );
+            } else {
+                logger.error(
+                    `An error occurred while updating ${PrettyUser(
+                        member.user
+                    )}'s nickname: ${err}`
+                );
+            }
+
+            return false;
+        }
+
+        return dbUpdate;
     });
 };
 
