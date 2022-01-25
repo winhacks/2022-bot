@@ -60,19 +60,21 @@ const unverifyModule: CommandType = {
 
 const HandleUnverify = async (guild: Guild, member: GuildMember) => {
     return WithTransaction(async (session) => {
-        const remove = FindAndRemove(verifiedCollection, {userID: member.id}, {session});
+        const findQuery = {userID: member.id};
+        logger.info(findQuery);
+        const remove = FindAndRemove(verifiedCollection, findQuery, {session});
 
         // no role to take, stop here
         if (!Config.verify.verified_role_name) {
             return remove;
         }
 
+        const verRole = guild.roles.cache.findKey(
+            (r) => r.name === Config.verify.verified_role_name
+        );
+
         // try to remove role, await any errors
         try {
-            const verRole = guild.roles.cache.findKey(
-                (r) => r.name === Config.verify.verified_role_name
-            );
-
             // role not found
             if (!verRole) {
                 throw new Error(`Role not found: ${Config.verify.verified_role_name}`);
@@ -89,7 +91,12 @@ const HandleUnverify = async (guild: Guild, member: GuildMember) => {
             return false;
         }
 
-        return remove;
+        const dbRes = await remove;
+        if (!dbRes) {
+            await member.roles.add(verRole);
+        }
+
+        return dbRes;
     });
 };
 export {unverifyModule as command};

@@ -5,7 +5,6 @@ import {
     Document,
     UpdateFilter,
     ClientSession,
-    WriteConcern,
 } from "mongodb";
 import {Config} from "../config";
 import {Query} from "../types";
@@ -126,10 +125,7 @@ export const FindAndReplace = async <T>(
     const result = await db.findOneAndReplace(find, replaceWith, {
         session: options?.session,
     });
-    return (
-        !!result.ok &&
-        (!(options?.required ?? true) || result.lastErrorObject?.updatedExisting)
-    );
+    return !!result.ok && !(options?.required ?? true);
 };
 
 // finds a document and applies the update to it
@@ -139,13 +135,12 @@ export const FindAndUpdate = async <T>(
     update: UpdateFilter<Document> | Partial<T>,
     options?: Partial<{session: ClientSession; required: boolean; upsert: boolean}>
 ): Promise<boolean> => {
+    const upsert = options?.upsert ?? false;
     const db = await GetClient(collection);
-    let result = await db.updateOne(find, update, {
-        upsert: options?.upsert ?? false,
+    const result = await db.updateOne(find, update, {
+        upsert: upsert,
         session: options?.session,
     });
-
-    new MessageEmbed().setFooter({text: "Footer text", iconURL: "image URL"});
 
     return !!result.acknowledged || !(options?.required ?? true);
 };
@@ -159,8 +154,8 @@ export const FindAndUpdateAll = async <T>(
     const db = await GetClient(collection);
     const result = await db.updateMany(find, update, {session: options?.session});
     return (
-        !!result.acknowledged &&
-        (!(options?.required ?? true) || result.matchedCount != 0)
+        (!!result.acknowledged && result.matchedCount !== 0) ||
+        !(options?.required ?? true)
     );
 };
 
@@ -172,8 +167,5 @@ export const FindAndRemove = async <T>(
 ): Promise<boolean> => {
     const db = await GetClient(collection);
     const result = await db.findOneAndDelete(toDelete, {session: options?.session});
-    return (
-        !!result.ok &&
-        (!(options?.required ?? true) || result.lastErrorObject?.updatedExisting)
-    );
+    return !!result.ok || !(options?.required ?? true);
 };

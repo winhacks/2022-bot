@@ -150,16 +150,13 @@ const DoVerifyUser = async (
             cardInfo: userData,
         };
 
-        const dbUpdate = FindAndUpdate<VerifiedUserType>(
-            verifiedCollection,
-            {userID: member.id},
-            {$set: verifiedUser},
-            {session}
-        );
+        const insertion = InsertOne<VerifiedUserType>(verifiedCollection, verifiedUser, {
+            session,
+        });
 
         // no role to add, stop here
         if (!Config.verify.verified_role_name) {
-            return dbUpdate;
+            return insertion;
         }
 
         // look up the role
@@ -200,7 +197,7 @@ const DoVerifyUser = async (
             return false;
         }
 
-        return dbUpdate;
+        return insertion;
     });
 };
 
