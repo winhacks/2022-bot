@@ -92,7 +92,7 @@ export const InviteToTeam = async (intr: CommandInteraction<CacheType>): Promise
             {session}
         );
         if (!inviteAdd) {
-            return false;
+            return "Failed to add invite";
         }
 
         try {
@@ -123,10 +123,10 @@ export const InviteToTeam = async (intr: CommandInteraction<CacheType>): Promise
                 components: [buttonRow],
             });
         } catch (err) {
-            return false;
+            return `Failed to edit message: ${err}`;
         }
 
-        return true;
+        return "";
     });
 
     const collector = intr.user.dmChannel!.createMessageComponentCollector({
@@ -190,14 +190,14 @@ const HandleOfferAccept = async (
         );
 
         if (!team) {
-            return false;
+            return "Team not found";
         }
 
         const updatedTeam = {...team};
         updatedTeam.members.push(intr.user.id);
 
         if (!(await FindAndUpdate(teamCollection, team, updatedTeam, {session}))) {
-            return false;
+            return "Failed to update team";
         }
 
         // TODO: update permissions
@@ -205,10 +205,6 @@ const HandleOfferAccept = async (
         const tc = guild.channels.cache.get(team.textChannel)! as GuildChannel;
 
         const msg = intr.message as Message<boolean>;
-        if (!msg.editable) {
-            return false;
-        }
-
         try {
             msg.edit({
                 embeds: [
@@ -220,11 +216,11 @@ const HandleOfferAccept = async (
                 ],
                 components: [],
             });
-        } catch (_) {
-            return false;
+        } catch (err) {
+            return `Failed to edit message: ${err}`;
         }
 
-        return true;
+        return "";
     });
 
     if (!res) {
@@ -257,15 +253,10 @@ const HandleOfferDecline = async (intr: MessageComponentInteraction<CacheType>) 
                 {session}
             ))
         ) {
-            console.log("Update failed");
-            return false;
+            return "Failed to remove invite from team";
         }
 
         const msg = intr.message as Message<boolean>;
-        if (!msg.editable) {
-            return false;
-        }
-
         try {
             msg.edit({
                 embeds: [
@@ -278,10 +269,10 @@ const HandleOfferDecline = async (intr: MessageComponentInteraction<CacheType>) 
                 components: [],
             });
         } catch (_) {
-            return false;
+            return "Failed replace invite with declined status";
         }
 
-        return true;
+        return "";
     });
 
     if (!res) {

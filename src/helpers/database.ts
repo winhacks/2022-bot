@@ -64,30 +64,34 @@ export const GetClient = async (name: string) => {
 };
 
 // Performs an operation under the safety of a transaction. Auto-commits after operation success.
-export const WithTransaction = async (operation: {
-    (session: ClientSession): Promise<boolean>;
-}) => {
+export const WithTransaction = async (
+    operation: {
+        (session: ClientSession): Promise<string>;
+    },
+    rollback?: {(error: string): Promise<void>}
+): Promise<string> => {
     const session = mongoClient.startSession();
+    rollback = rollback ?? (async (e) => {});
 
-    let res = true;
     try {
-        await session.withTransaction(async () => {
-            res = await operation(session);
-            if (!res) {
-                await session.abortTransaction();
-                return;
-            }
-        });
-    } catch (err) {
-        res = false;
-        if (session.inTransaction()) {
-            await session.abortTransaction();
+        session.startTransaction();
+
+        // try to complete the operation, if it errors catch and abort
+        const error = await operation(session);
+        if (error) {
+            throw new Error(error);
         }
+
+        await session.commitTransaction();
+        return "";
+    } catch (err) {
+        if (session.inTransaction()) {
+            await Promise.allSettled([rollback(`${err}`), session.abortTransaction()]);
+        }
+        return `${err}`;
     } finally {
         await session.endSession();
     }
-
-    return res;
 };
 
 // inserts a document into the named collection

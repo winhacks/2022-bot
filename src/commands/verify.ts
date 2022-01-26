@@ -22,6 +22,7 @@ import {
     SuccessResponse,
 } from "../helpers/responses";
 import {GetColumn, GetUserData} from "../helpers/sheetsAPI";
+import {GiveUserRole, RenameUser, TakeUserRole} from "../helpers/userManagement";
 import {logger} from "../logger";
 import {CardInfoType, CommandType, VerifiedUserType} from "../types";
 import {NotInGuildResponse} from "./team/team-shared";
@@ -49,7 +50,7 @@ const verifyModule: CommandType = {
             return SafeReply(intr, NotInGuildResponse());
         }
 
-        // check if user is already verified
+        // check if user is already verified or someone already used this email
         const existingUser = await FindOne<VerifiedUserType>(verifiedCollection, {
             $or: [{userID: intr.user.id}, {email: email}],
         });
@@ -123,6 +124,7 @@ const verifyModule: CommandType = {
             )
         );
 
+        // verification went OK
         if (result) {
             logger.info(`Verified "${PrettyUser(intr.user)}" with ${email}`);
             if (intr.user.id !== intr.guild?.ownerId) {
@@ -142,6 +144,7 @@ const verifyModule: CommandType = {
                 );
             }
         } else {
+            // verification failed
             return SafeReply(intr, GenericError());
         }
     },
@@ -153,63 +156,83 @@ const DoVerifyUser = async (
     email: string,
     userData: CardInfoType
 ): Promise<boolean> => {
-    return WithTransaction(async (session) => {
-        const verifiedUser: VerifiedUserType = {
-            userID: member.id,
-            verifiedAt: Date.now(),
-            email: email,
-            cardInfo: userData,
-        };
+    const verifiedUser: VerifiedUserType = {
+        userID: member.id,
+        verifiedAt: Date.now(),
+        email: email,
+        cardInfo: userData,
+    };
 
-        const insertion = InsertOne<VerifiedUserType>(verifiedCollection, verifiedUser, {
-            session,
-        });
+    // look up the role we may need to give
+    const verRole = guild.roles.cache.findKey(
+        (r) => r.name === Config.verify.verified_role_name
+    );
 
-        // no role to add, stop here
-        if (!Config.verify.verified_role_name) {
-            return insertion;
-        }
+    let oldNick = member.nickname;
+    let roleGiven = false;
+    let nickChanged = false;
 
-        // look up the role
-        const verRole = guild.roles.cache.findKey(
-            (r) => r.name === Config.verify.verified_role_name
-        );
+    const error = await WithTransaction(
+        async (session) => {
+            const insertFail = "Could not insert new verified user";
+            const insertion = InsertOne<VerifiedUserType>(
+                verifiedCollection,
+                verifiedUser,
+                {
+                    session,
+                }
+            );
 
-        // try to update role, catch any error and cancel transaction
-        let nicked = false;
-        try {
-            // role not found, that's an error
-            if (!verRole) {
-                throw new Error(`Role not found: ${Config.verify.verified_role_name}`);
+            // if there is no role to add in the config, just return the insert result
+            if (!Config.verify.verified_role_name) {
+                return (await insertion) ? "" : insertFail;
+            } else if (!verRole) {
+                // if there is a role but it wasn't found, that's an error
+                return "Role could not be found";
             }
 
-            // await completion to ensure no error occurs
+            // give verified role
+            const giveUserRoleErr = await GiveUserRole(member, verRole);
+            if (giveUserRoleErr) {
+                return giveUserRoleErr;
+            }
+            roleGiven = true;
+
+            // nickname user if they are not owner
             if (member.id !== guild.ownerId) {
-                await member.setNickname(`${userData.firstName} ${userData.lastName}`);
+                const giveNickErr = await RenameUser(
+                    member,
+                    `${userData.firstName} ${userData.lastName}`
+                );
+                if (giveNickErr) {
+                    return giveNickErr;
+                }
             }
-            nicked = true;
+            nickChanged = true;
 
-            await member.roles.add(verRole);
-        } catch (err) {
-            if (nicked) {
+            return "";
+        },
+        async (err) => {
+            if (roleGiven) {
+                await TakeUserRole(member, verRole!);
                 logger.error(
                     `An error occurred while updating ${PrettyUser(
                         member.user
                     )}'s roles: ${err}`
                 );
-            } else {
+            }
+            if (nickChanged) {
+                await RenameUser(member, oldNick);
                 logger.error(
                     `An error occurred while updating ${PrettyUser(
                         member.user
                     )}'s nickname: ${err}`
                 );
             }
-
-            return false;
         }
+    );
 
-        return insertion;
-    });
+    return !error;
 };
 
 export {verifyModule as command};

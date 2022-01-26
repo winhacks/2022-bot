@@ -82,7 +82,7 @@ const DeleteTeamOutcome = async (intr: CommandInteraction<CacheType>, team: Team
         );
 
         if (!category) {
-            return false;
+            return "Team channel category could not be found";
         }
 
         // TODO: replace with update
@@ -95,15 +95,18 @@ const DeleteTeamOutcome = async (intr: CommandInteraction<CacheType>, team: Team
                 {session}
             ))
         ) {
-            return false;
+            return "Failed to update";
         }
 
+        // TODO: do these last so message history isn't lost unless the bot succeeds in everything else (which is more likely to fail)
         await Promise.allSettled([
             vc?.delete("Team disbanded"),
             tc?.delete("Team disbanded"),
         ]);
 
-        return FindAndRemove<TeamType>(teamCollection, team, {session});
+        return (await FindAndRemove<TeamType>(teamCollection, team, {session}))
+            ? ""
+            : "Failed to remove team";
     });
 };
 

@@ -1,5 +1,6 @@
 import {SlashCommandBuilder} from "@discordjs/builders";
 import {CacheType, CommandInteraction, Guild, GuildMember} from "discord.js";
+import {P} from "pino";
 import {Config} from "../config";
 import {
     FindAndRemove,
@@ -14,6 +15,7 @@ import {
     SafeReply,
     SuccessResponse,
 } from "../helpers/responses";
+import {GiveUserRole, TakeUserRole} from "../helpers/userManagement";
 import {logger} from "../logger";
 import {CommandType, VerifiedUserType} from "../types";
 import {NotInGuildResponse} from "./team/team-shared";
@@ -58,45 +60,55 @@ const unverifyModule: CommandType = {
     },
 };
 
-const HandleUnverify = async (guild: Guild, member: GuildMember) => {
-    return WithTransaction(async (session) => {
-        const findQuery = {userID: member.id};
-        logger.info(findQuery);
-        const remove = FindAndRemove(verifiedCollection, findQuery, {session});
+const HandleUnverify = async (guild: Guild, member: GuildMember): Promise<boolean> => {
+    const verRole = guild.roles.cache.findKey(
+        (r) => r.name === Config.verify.verified_role_name
+    );
 
-        // no role to take, stop here
-        if (!Config.verify.verified_role_name) {
-            return remove;
-        }
+    if (Config.verify.verified_role_name && !verRole) {
+        return false;
+    }
 
-        const verRole = guild.roles.cache.findKey(
-            (r) => r.name === Config.verify.verified_role_name
-        );
+    let roleTaken = false;
+    const error = await WithTransaction(
+        async (session) => {
+            // start dropping the verified user record
+            const dropFail = "Could not drop verified user from database";
+            const remove = FindAndRemove(
+                verifiedCollection,
+                {userID: member.id},
+                {session}
+            );
 
-        // try to remove role, await any errors
-        try {
-            // role not found
-            if (!verRole) {
-                throw new Error(`Role not found: ${Config.verify.verified_role_name}`);
+            // if there is no role to remove in the config, just return the drop result
+            if (!Config.verify.verified_role_name) {
+                return (await remove) ? "" : dropFail;
+            } else if (!verRole) {
+                // if there is a role but it wasn't found, that's an error
+                return "Role could not be found";
             }
 
-            await member.roles.remove(verRole);
-        } catch (err) {
+            const takeUserRoleErr = await TakeUserRole(member, verRole);
+            if (takeUserRoleErr) {
+                return takeUserRoleErr;
+            }
+
+            roleTaken = true;
+            return (await remove) ? "" : dropFail;
+        },
+        async (error: string): Promise<void> => {
+            if (roleTaken) {
+                await GiveUserRole(member, verRole!);
+            }
+
             logger.error(
                 `An error occurred while removing roles from ${PrettyUser(
                     member.user
-                )}: ${err}`
+                )}: ${error}`
             );
-
-            return false;
         }
+    );
 
-        const dbRes = await remove;
-        if (!dbRes) {
-            await member.roles.add(verRole);
-        }
-
-        return dbRes;
-    });
+    return !error;
 };
 export {unverifyModule as command};
