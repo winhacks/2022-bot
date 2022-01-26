@@ -26,7 +26,10 @@ export const InvalidNameResponse = () => {
             ResponseEmbed()
                 .setTitle(":x: Invalid Team Name")
                 .setDescription(
-                    `Team names must be shorter than ${Config.teams.max_name_length} characters, consist only of spaces and English alphanumeric characters, and not already be taken.`
+                    `Team names must be shorter than ${
+                        Config.teams.max_name_length
+                    } characters, ${"\
+                    "}consist only of spaces and English alphanumeric characters, and not already be taken.`
                 ),
         ],
     };
@@ -111,7 +114,7 @@ export const TeamFullResponse = () => {
 // UTILITIES ------------------------------------------------------------------
 
 export const IsUserVerified = async (id: string) => {
-    return !!(await FindOne<VerifiedUserType>(verifiedCollection, VerifiedUserByID(id)));
+    return !!(await FindOne<VerifiedUserType>(verifiedCollection, {userID: id}));
 };
 
 export const MakeTeam = (
@@ -290,12 +293,4 @@ export const TeamByInvite = (inviteID: string): Query => {
 
 export const UnfilledCategory = (): Query => {
     return {team_count: {$lt: Config.teams.teams_per_category}};
-};
-
-export const VerifiedUserByEmail = (email: string): Query => {
-    return {email: email};
-};
-
-export const VerifiedUserByID = (id: string): Query => {
-    return {userID: id};
 };

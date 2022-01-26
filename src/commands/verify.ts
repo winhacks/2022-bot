@@ -51,14 +51,25 @@ const verifyModule: CommandType = {
 
         // check if user is already verified
         const existingUser = await FindOne<VerifiedUserType>(verifiedCollection, {
-            userID: intr.user.id,
+            $or: [{userID: intr.user.id}, {email: email}],
         });
-        if (existingUser) {
+        if (existingUser?.userID === intr.user.id) {
             return SafeReply(intr, {
                 embeds: [
                     ResponseEmbed()
                         .setTitle(":fire: Already Verified")
                         .setDescription("You're already verified."),
+                ],
+            });
+        } else if (existingUser?.email === email) {
+            return SafeReply(intr, {
+                embeds: [
+                    ResponseEmbed()
+                        .setTitle(":fire: Email Already Used")
+                        .setDescription(
+                            `It looks like someone is already registered with that email. If this ${"\
+                            "} is a mistake, please reach out to a Lead or Admin.`
+                        ),
                 ],
             });
         }

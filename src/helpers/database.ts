@@ -1,4 +1,4 @@
-import {Client, Collection, Message, MessageEmbed} from "discord.js";
+import {Collection} from "discord.js";
 import {
     MongoClient,
     Collection as MongoCollection,
