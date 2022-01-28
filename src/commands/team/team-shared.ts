@@ -1,4 +1,4 @@
-import {Guild, OverwriteResolvable} from "discord.js";
+import {Guild, GuildChannel, OverwriteResolvable} from "discord.js";
 import {ChannelTypes} from "discord.js/typings/enums";
 import {Config} from "../../config";
 import {
@@ -145,13 +145,7 @@ export const BuildTeamPermissions = (
     const teamPerms: OverwriteResolvable[] = [
         {
             id: everyoneID,
-            deny: [
-                "VIEW_CHANNEL",
-                "CONNECT",
-                "SPEAK",
-                "SEND_MESSAGES",
-                "CREATE_INSTANT_INVITE",
-            ],
+            deny: ["VIEW_CHANNEL", "CONNECT", "SPEAK", "SEND_MESSAGES"],
         },
     ];
 
@@ -169,7 +163,7 @@ export const MakeTeamChannels = async (
     guild: Guild,
     teamName: string,
     members: string[]
-): Promise<[string, string] | null> => {
+): Promise<[GuildChannel, GuildChannel] | null> => {
     const category = await GetUnfilledTeamCategory(guild);
     const updated = {...category};
     updated.team_count += 1;
@@ -179,31 +173,27 @@ export const MakeTeamChannels = async (
     }
 
     const teamPerms = BuildTeamPermissions(guild, members);
-    const textId = (
-        await guild.channels.create(teamName, {
-            type: ChannelTypes.GUILD_TEXT,
-            parent: category.category_id,
-            permissionOverwrites: teamPerms,
-        })
-    ).id;
+    const text = await guild.channels.create(teamName, {
+        type: ChannelTypes.GUILD_TEXT,
+        parent: category.category_id,
+        permissionOverwrites: teamPerms,
+    });
 
-    const voiceId = (
-        await guild.channels.create(teamName + "-voice", {
-            type: ChannelTypes.GUILD_VOICE,
-            parent: category.category_id,
-            permissionOverwrites: teamPerms,
-        })
-    ).id;
+    const voice = await guild.channels.create(teamName + "-voice", {
+        type: ChannelTypes.GUILD_VOICE,
+        parent: category.category_id,
+        permissionOverwrites: teamPerms,
+    });
 
-    return [textId, voiceId];
+    return [text, voice];
 };
 
 export const ValidateTeamName = (rawName: string): boolean => {
     const discordified = Discordify(rawName);
 
-    const length: boolean = rawName.length <= Config.teams.max_name_length;
-    const characters: boolean = !!rawName.match(/^[a-z0-9\-]+$/);
-    const standardized: boolean = !!discordified.match(/^(?:[a-z0-9]+(?:-?[a-z0-9]*))+$/);
+    const length = rawName.length <= Config.teams.max_name_length;
+    const characters = !!rawName.match(/^[a-z0-9\-]+$/);
+    const standardized = !!discordified.match(/^(?:[a-z0-9]+(?:-?[a-z0-9]*))+$/);
 
     return length && characters && standardized;
 };
