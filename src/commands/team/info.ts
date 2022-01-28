@@ -23,11 +23,8 @@ export const TeamInfo = async (intr: CommandInteraction<CacheType>): Promise<any
 
     const memberCache = intr.guild!.members.cache;
 
-    let memberString = memberCache.get(team.owner)!.displayName;
-    team.members?.forEach(
-        (id) => (memberString += "\n" + memberCache.get(id)!.displayName)
-    );
-
+    // FIXME: this can actually fail, if the leader leaves the server.
+    // We should fix that by triggering team leave when the leader leaves
     const leader = memberCache.get(team.owner)!.displayName;
     const members = team.members.map((id) => memberCache.get(id)?.displayName);
 
