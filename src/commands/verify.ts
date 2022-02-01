@@ -1,14 +1,11 @@
 import {
     hyperlink,
-    SlashCommandBooleanOption,
     SlashCommandBuilder,
     SlashCommandStringOption,
 } from "@discordjs/builders";
-import {CacheType, Collection, CommandInteraction, Guild, GuildMember} from "discord.js";
+import {CacheType, CommandInteraction, Guild, GuildMember} from "discord.js";
 import {Config} from "../config";
 import {
-    FindAndRemove,
-    FindAndUpdate,
     FindOne,
     InsertOne,
     verifiedCollection,
@@ -43,7 +40,9 @@ const verifyModule: CommandType = {
         ),
     ephemeral: true,
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
-        const email = intr.options.getString("email", true);
+        const email = intr.options.getString("email", true).toLowerCase();
+
+        logger.info("Hit");
 
         // ensure command running in guild
         if (!intr.inGuild()) {
@@ -94,7 +93,15 @@ const verifyModule: CommandType = {
             Config.verify.target_sheet,
             Config.verify.email_column
         );
-        let emailIndex = emailColumn.lastIndexOf(email);
+
+        // find the last index of the input email, if it exists (case insensitive)
+        let emailIndex = -1;
+        for (let index = emailColumn.length - 1; index >= 0; index--) {
+            if (email === emailColumn[index].toLowerCase()) {
+                emailIndex = index;
+                break;
+            }
+        }
 
         // email not in column, this user should not be verified
         if (emailIndex === -1) {
