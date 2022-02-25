@@ -54,11 +54,11 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>) => {
     const newTeam = {...oldTeam};
     newTeam.name = newName;
 
-    const result = await WithTransaction(async (session): Promise<boolean> => {
+    const result = await WithTransaction(async (session): Promise<string> => {
         if (
             !(await FindAndReplace<TeamType>(teamCollection, oldTeam, newTeam, {session}))
         ) {
-            return false;
+            return "fail";
         }
 
         let rename = await Promise.allSettled([
@@ -67,10 +67,10 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>) => {
         ]);
 
         if (rename.map((e) => e.status).includes("rejected")) {
-            return false;
+            return "fail";
         }
 
-        return true;
+        return "";
     });
 
     if (!result) {

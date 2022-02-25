@@ -27,7 +27,7 @@ export enum TeamAvailability {
 
 export type Query = Filter<MongoDocument>;
 
-export type TeamType = {
+export interface TeamType {
     name: string;
     stdName: string;
     owner: string;
@@ -35,25 +35,25 @@ export type TeamType = {
     voiceChannel: string;
     members: string[];
     invites: string[];
-};
+}
 
-export type CategoryType = {
+export interface CategoryType {
     category_id: string;
     team_count: number;
-};
+}
 
-export type VerifiedUserType = {
+export interface VerifiedUserType {
     userID: string;
     verifiedAt: number;
     email: string;
     cardInfo: CardInfoType;
-};
+}
 
-export type CardInfoType = {
+export interface CardInfoType {
     authorizedCard: boolean;
-    firstName?: string;
-    lastName?: string;
-    pronouns?: string;
+    firstName: string;
+    lastName: string;
+    pronouns: string;
     github?: string;
     website?: string;
     resume?: string;
@@ -62,4 +62,5 @@ export type CardInfoType = {
     studyLocation?: string;
     phone?: string;
     email?: string;
-};
+    customDescription?: string;
+}

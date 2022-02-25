@@ -1,6 +1,5 @@
 {
     "extends": "@tsconfig/node16/tsconfig.json",
-    "compileOnSave": true,
     "include": [
         "src/**/*"
     ]

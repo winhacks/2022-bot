@@ -19,7 +19,7 @@ export const teamCollection = "teams";
 export const categoryCollection = "team_categories";
 export const verifiedCollection = "users";
 export const inviteCollection = "invites";
-
+export const cardCollection = "cards";
 // HACK: Create actual schema type instead of using MongoDB's base Document type
 
 export const AuthenticateMongo = async () => {
