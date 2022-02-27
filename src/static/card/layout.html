@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        :root {
+            --pfp-padding: 12px;
+            --card-margin-horizontal: 60px;
+            --card-margin-top: 60px;
+        }
+
+        * {
+            margin: 0px;
+            padding: 0px;
+        }
+
+        body {
+            font-family: 'Roboto Light', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+
+        .primary {
+            color:#0de5a8;
+        }
+        .secondary {
+            color: white;
+        }
+        .upper {
+            text-transform: uppercase;
+        }
+
+        .light {
+            font-family: 'Roboto Thin', sans-serif;
+        }
+
+        .heavy {
+            font-family: 'Roboto', sans-serif;
+        }
+
+        .large {
+            font-size: 70px;
+        }
+
+        .medium {
+            font-size: 54px;
+        }
+
+        .regular {
+            font-size: 36px;
+        }
+
+        .small {
+            font-size: 32px;
+        }
+
+        #viewport {
+            /* TODO: replace the background with actual HTML/CSS shapes because SVG is king */
+            background-image: url("background.png");
+            position: absolute;
+
+            top: 0;
+            left: 0;
+            
+            /* these set the size of the output image */
+            width: 1050px;
+            height: 600px;
+        }
+
+        #aboutContainer {
+            position: absolute;
+
+            top: calc(var(--card-margin-top) + 30px);
+            left: var(--card-margin-horizontal);
+        }
+
+        #profilePicture {
+            position: absolute;
+
+            top: calc(60px + var(--pfp-padding));
+            left: calc(779px + var(--pfp-padding));
+            width: calc(212px - 2 * var(--pfp-padding));
+            height: calc(211px - 2 * var(--pfp-padding));
+        }
+
+        #pronouns {
+            position: absolute;
+
+            top: 280px;
+            right: var(--card-margin-horizontal);
+            width: 212px;
+        }
+
+        #badge {
+            --excess: 100px;
+            position: absolute;
+
+            top: calc(-1 * var(--excess));
+            left: calc(-300px - var(--excess));
+            height: calc(600px + 2 * var(--excess));
+
+            transform: rotateZ(8deg);
+            opacity: 0.1;
+        }
+
+        #logo {
+            position: absolute;
+
+            top: 350px;
+            right: 30px;
+            width: 275px;
+            height: 200px;
+        }
+
+        #logo > img {
+            /* container restriction */
+            width: 100%;
+            max-height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <!-- this node is the root of the screenshot 
+    
+        USE THE FOLLOWING CONTENT CONSTANTS:
+            - {{name}} for the member's name
+            - {{discordName}} for the member's username#discriminator
+            - {{studyArea}} for the member's area of study (ie, Computer Science)
+            - {{studyLocation}} for the member's location of study (ie, University of Windsor)
+            - {{pronouns}} for the member's pronouns (ie, 'He / Him')
+            - {{pfpURL}} for the member's profile picture URL
+            - {{badgeURL}} for the University's badge, if it exists
+            - {{logoURL}} for the University's logo, if it exists
+            - {{description}} for the member's custom description, if it exists
+    -->
+    <div id="viewport">
+        <!-- Badge -->
+        <div id="badge">
+            <img src={{badgeURL}} style="height: 100%;">
+        </div>
+
+        <!-- PFP -->
+        <img src={{pfpURL}} id="profilePicture">
+        
+        <!-- Pronouns -->
+        <div id="pronouns">
+            <p class="small heavy primary" style="text-align: center;">{{pronouns}}</p>
+        </div>
+
+        <!-- Logo -->
+        <div id="logo">
+            <img src={{logoURL}} style="margin-top: 50%; transform: translateY(-50%);">
+        </div>
+
+        <!-- About -->
+        <div id="aboutContainer">
+            <h1 class="large primary upper">{{name}}</h1>
+            <h3 class="small heavy secondary upper">AKA: {{discordName}}</h1>
+        </div>
+
+    </div>
+</body>
+</html>
