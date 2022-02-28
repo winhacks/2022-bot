@@ -649,6 +649,11 @@ saslprep@^1.0.3:
   dependencies:
     sparse-bitfield "^3.0.3"
 
+shutdown-handler@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/shutdown-handler/-/shutdown-handler-1.0.1.tgz#dad229007b4158f5b0d7de02ddc3145cee2446e2"
+  integrity sha1-2tIpAHtBWPWw194C3cMUXO4kRuI=
+
 side-channel@^1.0.4:
   version "1.0.4"
   resolved "https://registry.yarnpkg.com/side-channel/-/side-channel-1.0.4.tgz#efce5c8fdc104ee751b25c58d4290011fa5ea2cf"

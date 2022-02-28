@@ -35,11 +35,11 @@
     // information for the /about command, and `color` dictates the bot embed color
     bot_info: {
         name: "",
-        color: "#14c3a2", // any hex colour code without alpha
+        color: 0x14c3a2, // a hex literal of the form 0xRRGGBB
         event_name: "WinHacks 2022",
         title_url: "",
         thumbnail: "",
-        description: "An open-source Discord Bot written in TypeScript with Discord.JS by [Isaac Kilbourne](https://kilbouri.github.io) and published under the MIT license for WinHacks 2022",
+        description: "An open-source Discord Bot written in TypeScript with Discord.JS by [Isaac Kilbourne](https://kilbouri.github.io) and published under the MIT license for WinHacks 2022.",
     },
 
     // config for the /verify and /unverify commands
@@ -55,9 +55,9 @@
     teams: {
         database_name: "botDB",
         max_name_length: 20,
-        invite_duration: 5,
+        invite_duration: 5, // duration in minutes
         max_team_size: 4,
-        teams_per_category: 25,
+        teams_per_category: 25, // each team creates 2 channels. Should be at MOST floor(DISCORD_CATEGORY_CHANNEL_LIMIT / 2)
         category_base_name: "Teams",
     },
 

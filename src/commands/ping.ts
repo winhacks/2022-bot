@@ -9,7 +9,7 @@ const pingModule: CommandType = {
     data: new SlashCommandBuilder() //
         .setName("ping")
         .setDescription("Ping. Pong?"),
-    ephemeral: true,
+    deferMode: "EPHEMERAL",
     execute: async (intr: CommandInteraction<CacheType>) => {
         return SafeReply(intr, "PONG!");
     },

@@ -4,6 +4,7 @@ import {InsertOne, teamCollection, WithTransaction} from "../../helpers/database
 import {
     GenericError,
     NotVerifiedResponse,
+    SafeDeferReply,
     SafeReply,
     SuccessResponse,
 } from "../../helpers/responses";
@@ -11,7 +12,6 @@ import {logger} from "../../logger";
 import {TeamAvailability, TeamType} from "../../types";
 import {
     AlreadyInTeamResponse,
-    AlreadyOwnTeamResponse,
     Discordify,
     GetTeamAvailability,
     InvalidNameResponse,
@@ -29,8 +29,10 @@ export const CreateTeam = async (intr: CommandInteraction<CacheType>): Promise<a
     if (!intr.guild) {
         return SafeReply(intr, NotInGuildResponse());
     } else if (!(await IsUserVerified(intr.user.id))) {
-        return SafeReply(intr, NotVerifiedResponse());
+        return SafeReply(intr, NotVerifiedResponse(true));
     }
+
+    await SafeDeferReply(intr, true);
 
     const teamName = intr.options
         .getString("name", true)
@@ -48,18 +50,18 @@ export const CreateTeam = async (intr: CommandInteraction<CacheType>): Promise<a
         return SafeReply(intr, NameTakenResponse());
     } else if (availability === TeamAvailability.ALREADY_IN_TEAM) {
         return SafeReply(intr, AlreadyInTeamResponse());
-    } else if (availability === TeamAvailability.OWNER_EXISTS) {
-        return SafeReply(intr, AlreadyOwnTeamResponse());
     }
 
-    let txt: GuildChannel | undefined = undefined,
-        vce: GuildChannel | undefined = undefined;
+    let txt: GuildChannel, vce: GuildChannel;
     const createError = await WithTransaction(
         async (session) => {
             // attempt to make channels
-            const newChannels = await MakeTeamChannels(intr.guild!, discordified, [
-                intr.user.id,
-            ]);
+            const newChannels = await MakeTeamChannels(
+                intr.guild!,
+                discordified,
+                [intr.user.id],
+                session
+            );
 
             if (!newChannels) {
                 return "Failed to make team channels";
@@ -67,7 +69,7 @@ export const CreateTeam = async (intr: CommandInteraction<CacheType>): Promise<a
             [txt, vce] = newChannels;
 
             // attempt to make and insert team
-            const newTeam: TeamType = MakeTeam(teamName, intr.user.id, txt.id, vce.id);
+            const newTeam: TeamType = MakeTeam(teamName, txt.id, vce.id, [intr.user.id]);
             const putResult = await InsertOne<TeamType>(teamCollection, newTeam, {
                 session,
             });
@@ -84,14 +86,14 @@ export const CreateTeam = async (intr: CommandInteraction<CacheType>): Promise<a
         }
     );
 
-    const memberCount = Config.teams.max_team_size - 1;
-    let successMsg = [
-        `Team ${teamName} has been created. Your channels are <#${txt}>`,
-        `and <#${vce}>. Invite up to ${memberCount} others with \`/team invite\`.`,
-    ];
-    if (!createError) {
-        return SafeReply(intr, SuccessResponse(successMsg.join(" ")));
-    } else {
+    if (createError) {
         return SafeReply(intr, GenericError());
+    } else {
+        const memberCount = Config.teams.max_team_size - 1;
+        const successMsg = [
+            `Team ${teamName} has been created. Your channels are ${txt!}`,
+            `and ${vce!}. Invite up to ${memberCount} others with \`/team invite\`.`,
+        ];
+        return SafeReply(intr, SuccessResponse(successMsg.join(" ")));
     }
 };

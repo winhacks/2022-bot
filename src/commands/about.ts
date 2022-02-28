@@ -10,6 +10,7 @@ const aboutModule: CommandType = {
     data: new SlashCommandBuilder()
         .setName("about")
         .setDescription("See information about the bot and its developer."),
+    deferMode: "NO-DEFER",
     execute: async (interaction: CommandInteraction<CacheType>) => {
         const embed = ResponseEmbed()
             .setTitle(Config.bot_info.name)

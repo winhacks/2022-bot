@@ -52,12 +52,11 @@ type ConfigType = {
     // info command config
     bot_info: {
         name: string;
-        color: string;
+        color: number; // a hex literal is preferred
         event_name: string;
         title_url?: string;
         thumbnail?: string;
         description: string;
-        embedColor: number;
     };
 
     socials: {
@@ -74,7 +73,6 @@ const LoadConfig = (file: string) => {
     const data = readFileSync(file, "utf-8");
     Config = parseJSON5(data) as ConfigType;
 
-    Config.bot_info.embedColor = Number.parseInt(Config.bot_info.color.slice(1), 16);
     logger.level = Config.dev_mode ? "debug" : "info";
 };
 

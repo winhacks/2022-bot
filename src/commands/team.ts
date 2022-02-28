@@ -6,12 +6,14 @@ import {
 } from "@discordjs/builders";
 import {CommandInteraction, CacheType} from "discord.js";
 import {GenericError, SafeReply} from "../helpers/responses";
-import {CommandType} from "../types";
+import {CommandType, TeamType} from "../types";
 import {CreateTeam} from "./team/create";
 import {TeamInfo} from "./team/info";
 import {RenameTeam} from "./team/rename";
 import {InviteToTeam} from "./team/invite";
 import {LeaveTeam} from "./team/leave";
+import {FindOne, teamCollection} from "../helpers/database";
+import {NotInTeamChannelResponse, NotInTeamResponse} from "./team/team-shared";
 
 // FINISHED
 
@@ -62,24 +64,42 @@ const teamModule: CommandType = {
                 .setName("leave")
                 .setDescription("Leave your current team.")
         ),
-    ephemeral: true,
+    deferMode: "NO-DEFER",
+    execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
+        const subcommand = intr.options.getSubcommand();
 
-    execute: async (interaction: CommandInteraction<CacheType>): Promise<any> => {
-        const subcommand = interaction.options.getSubcommand();
-
+        // user wants to create a new team
         if (subcommand === "create") {
-            return CreateTeam(interaction);
-        } else if (subcommand === "rename") {
-            return RenameTeam(interaction);
-        } else if (subcommand === "invite") {
-            return InviteToTeam(interaction);
-        } else if (subcommand === "info") {
-            return TeamInfo(interaction);
-        } else if (subcommand === "leave") {
-            return LeaveTeam(interaction);
+            return CreateTeam(intr);
         }
 
-        return SafeReply(interaction, GenericError());
+        // team should exist for the rest, so look it up
+        const team = await FindOne<TeamType>(teamCollection, {members: intr.user.id});
+        if (!team) {
+            return SafeReply(intr, NotInTeamResponse(true));
+        }
+
+        // info command can be used anywhere
+        if (subcommand === "info") {
+            return TeamInfo(intr, team);
+        }
+
+        if (intr.channelId !== team.textChannel) {
+            // this command cannot be used inside the team's channel
+            if (subcommand === "leave") {
+                return LeaveTeam(intr, team);
+            }
+
+            return SafeReply(intr, NotInTeamChannelResponse(team.textChannel, true));
+        }
+
+        if (subcommand === "rename") {
+            return RenameTeam(intr, team);
+        } else if (subcommand === "invite") {
+            return InviteToTeam(intr, team);
+        } else {
+            return SafeReply(intr, GenericError());
+        }
     },
 };
 

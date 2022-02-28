@@ -1,7 +1,7 @@
 import {hyperlink, SlashCommandBuilder} from "@discordjs/builders";
 import {CacheType, CommandInteraction} from "discord.js";
 import {Config} from "../config";
-import {ResponseEmbed, SafeReply} from "../helpers/responses";
+import {EmbedToMessage, ResponseEmbed, SafeReply} from "../helpers/responses";
 import {CommandType} from "../types";
 import {NotInGuildResponse} from "./team/team-shared";
 
@@ -11,7 +11,7 @@ const socialsModule: CommandType = {
     data: new SlashCommandBuilder() //
         .setName("socials")
         .setDescription("View the WinHacks socials."),
-
+    deferMode: "NO-DEFER",
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
         if (!intr.inGuild()) {
             return SafeReply(intr, NotInGuildResponse());
@@ -23,15 +23,16 @@ const socialsModule: CommandType = {
         }
 
         if (!Config.socials || Object.entries(Config.socials).length === 0) {
-            return SafeReply(intr, {
-                embeds: [
+            return SafeReply(
+                intr,
+                EmbedToMessage(
                     ResponseEmbed()
                         .setTitle(":confused: No Socials")
                         .setDescription(
                             "There are no socials configured. Its not you, its me."
-                        ),
-                ],
-            });
+                        )
+                )
+            );
         }
 
         const description = Object.entries(Config.socials)?.map(([key, value]) => {
@@ -44,7 +45,7 @@ const socialsModule: CommandType = {
         });
 
         embed.setDescription(description.join("\n"));
-        return SafeReply(intr, {embeds: [embed]});
+        return SafeReply(intr, EmbedToMessage(embed));
     },
 };
 

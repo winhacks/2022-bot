@@ -3,7 +3,13 @@ import {
     SlashCommandBuilder,
     SlashCommandStringOption,
 } from "@discordjs/builders";
-import {CacheType, CommandInteraction, Guild, GuildMember} from "discord.js";
+import {
+    CacheType,
+    CommandInteraction,
+    Guild,
+    GuildMember,
+    ReactionCollector,
+} from "discord.js";
 import {Config} from "../config";
 import {
     FindOne,
@@ -13,6 +19,7 @@ import {
 } from "../helpers/database";
 import {PrettyUser} from "../helpers/misc";
 import {
+    EmbedToMessage,
     GenericError,
     ResponseEmbed,
     SafeReply,
@@ -38,7 +45,7 @@ const verifyModule: CommandType = {
                 .setDescription("The email you registered with")
                 .setRequired(true)
         ),
-    ephemeral: true,
+    deferMode: "EPHEMERAL",
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
         const email = intr.options.getString("email", true).toLowerCase();
 
@@ -54,37 +61,40 @@ const verifyModule: CommandType = {
             $or: [{userID: intr.user.id}, {email: email}],
         });
         if (existingUser?.userID === intr.user.id) {
-            return SafeReply(intr, {
-                embeds: [
+            return SafeReply(
+                intr,
+                EmbedToMessage(
                     ResponseEmbed()
                         .setTitle(":fire: Already Verified")
-                        .setDescription("You're already verified."),
-                ],
-            });
+                        .setDescription("You're already verified.")
+                )
+            );
         } else if (existingUser?.email === email) {
-            return SafeReply(intr, {
-                embeds: [
+            return SafeReply(
+                intr,
+                EmbedToMessage(
                     ResponseEmbed()
                         .setTitle(":fire: Email Already Used")
                         .setDescription(
                             `It looks like someone is already registered with that email. If this ${"\
                             "} is a mistake, please reach out to a Lead or Admin.`
-                        ),
-                ],
-            });
+                        )
+                )
+            );
         }
 
         // ensure email is valid
         if (!email.match(emailRegex)) {
-            return SafeReply(intr, {
-                embeds: [
+            return SafeReply(
+                intr,
+                EmbedToMessage(
                     ResponseEmbed()
                         .setTitle(":x: Invalid Email")
                         .setDescription(
                             "That doesn't appear to be a valid email address."
-                        ),
-                ],
-            });
+                        )
+                )
+            );
         }
 
         // get data from sheets API
@@ -105,8 +115,9 @@ const verifyModule: CommandType = {
 
         // email not in column, this user should not be verified
         if (emailIndex === -1) {
-            return SafeReply(intr, {
-                embeds: [
+            return SafeReply(
+                intr,
+                EmbedToMessage(
                     ResponseEmbed()
                         .setTitle(":x: Verification Failed")
                         .setDescription(
@@ -114,9 +125,9 @@ const verifyModule: CommandType = {
                                 "register here",
                                 Config.verify.registration_url
                             )}.`
-                        ),
-                ],
-            });
+                        )
+                )
+            );
         }
 
         // verify user
@@ -228,6 +239,7 @@ const DoVerifyUser = async (
                     )}'s roles: ${err}`
                 );
             }
+
             if (nickChanged) {
                 await RenameUser(member, oldNick);
                 logger.error(

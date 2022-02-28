@@ -10,7 +10,7 @@ export interface CommandType {
         | SlashCommandBuilder
         | SlashCommandSubcommandsOnlyBuilder
         | Omit<SlashCommandBuilder, "addSubcommandGroup" | "addSubcommand">;
-    ephemeral?: boolean;
+    deferMode: "NORMAL" | "EPHEMERAL" | "NO-DEFER";
     execute: (interaction: CommandInteraction<CacheType>) => Promise<any>;
 }
 
@@ -20,7 +20,6 @@ export interface ClientType extends Client {
 
 export enum TeamAvailability {
     "NAME_EXISTS",
-    "OWNER_EXISTS",
     "ALREADY_IN_TEAM",
     "AVAILABLE",
 }
@@ -30,16 +29,21 @@ export type Query = Filter<MongoDocument>;
 export type TeamType = {
     name: string;
     stdName: string;
-    owner: string;
     textChannel: string;
     voiceChannel: string;
     members: string[];
-    invites: string[];
+    invites: InviteType[];
+};
+
+export type InviteType = {
+    teamName: string;
+    inviteID: string;
+    invitee: string;
 };
 
 export type CategoryType = {
-    category_id: string;
-    team_count: number;
+    categoryID: string;
+    teamCount: number;
 };
 
 export type VerifiedUserType = {

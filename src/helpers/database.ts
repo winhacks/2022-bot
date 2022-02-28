@@ -7,6 +7,7 @@ import {
     ClientSession,
 } from "mongodb";
 import {Config} from "../config";
+import {logger} from "../logger";
 import {Query} from "../types";
 
 let mongoClient: MongoClient;
@@ -86,12 +87,24 @@ export const WithTransaction = async (
         return "";
     } catch (err) {
         if (session.inTransaction()) {
-            await Promise.allSettled([rollback(`${err}`), session.abortTransaction()]);
+            try {
+                await Promise.allSettled([
+                    rollback(`${err}`),
+                    session.abortTransaction(),
+                ]);
+            } catch (err) {
+                logger.warn(`Error while rolling back transaction: ${err}`);
+            }
         }
         return `${err}`;
     } finally {
         await session.endSession();
     }
+};
+
+export const CountEntities = async (collection: string): Promise<number> => {
+    const db = await GetClient(collection);
+    return await db.estimatedDocumentCount();
 };
 
 // inserts a document into the named collection
@@ -129,7 +142,8 @@ export const FindAndReplace = async <T>(
     const result = await db.findOneAndReplace(find, replaceWith, {
         session: options?.session,
     });
-    return !!result.ok && !(options?.required ?? true);
+
+    return !!result.ok || !(options?.required ?? true);
 };
 
 // finds a document and applies the update to it

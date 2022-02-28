@@ -27,3 +27,12 @@ export const GetDefault = <K, V>(col: Collection<K, V>, key: K, defaultValue: V)
         return defaultValue;
     }
 };
+
+export const AllResolve = async (promises: readonly any[]) => {
+    const res = await Promise.allSettled(promises);
+    if (res.map((e) => e.status).includes("rejected")) {
+        return false;
+    } else {
+        return true;
+    }
+};

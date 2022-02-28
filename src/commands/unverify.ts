@@ -5,11 +5,13 @@ import {Config} from "../config";
 import {
     FindAndRemove,
     FindOne,
+    teamCollection,
     verifiedCollection,
     WithTransaction,
 } from "../helpers/database";
 import {PrettyUser} from "../helpers/misc";
 import {
+    EmbedToMessage,
     GenericError,
     ResponseEmbed,
     SafeReply,
@@ -17,15 +19,14 @@ import {
 } from "../helpers/responses";
 import {GiveUserRole, TakeUserRole} from "../helpers/userManagement";
 import {logger} from "../logger";
-import {CommandType, VerifiedUserType} from "../types";
+import {CommandType, TeamType, VerifiedUserType} from "../types";
 import {NotInGuildResponse} from "./team/team-shared";
 
 const unverifyModule: CommandType = {
     data: new SlashCommandBuilder()
         .setName("unverify")
         .setDescription("Unverify yourself. You'll need to /verify again."),
-    ephemeral: true,
-
+    deferMode: "EPHEMERAL",
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
         if (!intr.inGuild()) {
             return SafeReply(intr, NotInGuildResponse());
@@ -36,15 +37,31 @@ const unverifyModule: CommandType = {
             userID: intr.user.id,
         });
         if (!existing) {
-            return SafeReply(intr, {
-                embeds: [
+            return SafeReply(
+                intr,
+                EmbedToMessage(
                     ResponseEmbed()
                         .setTitle(":x: Not Verified")
                         .setDescription(
                             "You're not verified yet. Did you mean to use `/verify`?"
-                        ),
-                ],
-            });
+                        )
+                )
+            );
+        }
+
+        // check if user is in team
+        const userTeam = await FindOne<TeamType>(teamCollection, {members: intr.user.id});
+        if (userTeam) {
+            return SafeReply(
+                intr,
+                EmbedToMessage(
+                    ResponseEmbed()
+                        .setTitle(":x: In Team")
+                        .setDescription(
+                            "You cannot unverify while in a team. Use `/team leave` first."
+                        )
+                )
+            );
         }
 
         const guild = intr.guild!;

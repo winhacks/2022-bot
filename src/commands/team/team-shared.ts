@@ -1,15 +1,28 @@
-import {Guild, GuildChannel, OverwriteResolvable} from "discord.js";
+import {
+    CategoryChannel,
+    Guild,
+    GuildChannel,
+    GuildTextBasedChannel,
+    OverwriteResolvable,
+    User,
+} from "discord.js";
 import {ChannelTypes} from "discord.js/typings/enums";
+import {ClientSession} from "mongodb";
 import {Config} from "../../config";
 import {
     categoryCollection,
+    FindAndRemove,
     FindAndReplace,
+    FindAndUpdate,
     FindOne,
     GetClient,
     teamCollection,
     verifiedCollection,
+    WithTransaction,
 } from "../../helpers/database";
-import {ResponseEmbed} from "../../helpers/responses";
+import {ChannelLink, Remove} from "../../helpers/misc";
+import {EmbedToMessage, ResponseEmbed} from "../../helpers/responses";
+import {logger} from "../../logger";
 import {
     CategoryType,
     Query,
@@ -20,8 +33,9 @@ import {
 
 // RESPONSES ------------------------------------------------------------------
 
-export const InvalidNameResponse = () => {
+export const InvalidNameResponse = (ephemeral: boolean = false) => {
     return {
+        ephemeral: ephemeral,
         embeds: [
             ResponseEmbed()
                 .setTitle(":x: Invalid Team Name")
@@ -35,8 +49,9 @@ export const InvalidNameResponse = () => {
     };
 };
 
-export const NameTakenResponse = () => {
+export const NameTakenResponse = (ephemeral: boolean = false) => {
     return {
+        ephemeral: ephemeral,
         embeds: [
             ResponseEmbed()
                 .setTitle(":x: Name Taken")
@@ -45,18 +60,9 @@ export const NameTakenResponse = () => {
     };
 };
 
-export const AlreadyOwnTeamResponse = () => {
+export const NotTeamLeaderResponse = (ephemeral: boolean = false) => {
     return {
-        embeds: [
-            ResponseEmbed()
-                .setTitle(":x: You're Already a Team Leader")
-                .setDescription("You already have a team. In fact, you're the leader!"),
-        ],
-    };
-};
-
-export const NotTeamLeaderResponse = () => {
-    return {
+        ephemeral: ephemeral,
         embeds: [
             ResponseEmbed()
                 .setTitle(":x: Not a Team Leader")
@@ -65,8 +71,9 @@ export const NotTeamLeaderResponse = () => {
     };
 };
 
-export const AlreadyInTeamResponse = () => {
+export const AlreadyInTeamResponse = (ephemeral: boolean = false) => {
     return {
+        ephemeral: ephemeral,
         embeds: [
             ResponseEmbed()
                 .setTitle(":x: Already in a Team")
@@ -77,8 +84,9 @@ export const AlreadyInTeamResponse = () => {
     };
 };
 
-export const NotInTeamResponse = () => {
+export const NotInTeamResponse = (ephemeral: boolean = false) => {
     return {
+        ephemeral: ephemeral,
         embeds: [
             ResponseEmbed()
                 .setTitle(":x: Not in a Team")
@@ -89,8 +97,9 @@ export const NotInTeamResponse = () => {
     };
 };
 
-export const NotInGuildResponse = () => {
+export const NotInGuildResponse = (ephemeral: boolean = false) => {
     return {
+        ephemeral: ephemeral,
         embeds: [
             ResponseEmbed()
                 .setTitle(":x: Not in a Server")
@@ -99,13 +108,32 @@ export const NotInGuildResponse = () => {
     };
 };
 
-export const TeamFullResponse = () => {
+export const TeamFullResponse = (ephemeral: boolean = false) => {
     return {
+        ephemeral: ephemeral,
         embeds: [
             ResponseEmbed()
                 .setTitle(":x: Team Full")
                 .setDescription(
                     `Teams can only have up to ${Config.teams.max_team_size} members.`
+                ),
+        ],
+    };
+};
+
+export const NotInTeamChannelResponse = (
+    textChannelID: string,
+    ephemeral: boolean = false
+) => {
+    return {
+        ephemeral: ephemeral,
+        embeds: [
+            ResponseEmbed()
+                .setTitle("Wrong Channel")
+                .setDescription(
+                    `You can only use this command in your team text channel, ${ChannelLink(
+                        textChannelID
+                    )}`
                 ),
         ],
     };
@@ -119,18 +147,17 @@ export const IsUserVerified = async (id: string) => {
 
 export const MakeTeam = (
     teamName: string,
-    owner: string,
     text: string,
     voice: string,
-    members?: string[]
+    members: string[]
 ): TeamType => {
     return {
         name: teamName,
         stdName: Discordify(teamName),
-        owner: owner,
-        members: members ? members : [],
+        members: members,
         textChannel: text,
         voiceChannel: voice,
+        invites: [],
     } as TeamType;
 };
 
@@ -139,8 +166,9 @@ export const BuildTeamPermissions = (
     members: string[]
 ): OverwriteResolvable[] => {
     const everyoneID = guild.roles.cache.findKey((role) => role.name === "@everyone");
-    if (!everyoneID)
+    if (!everyoneID) {
         throw new Error(`Somehow the @everyone role isn't cached for ${guild.id}`);
+    }
 
     const teamPerms: OverwriteResolvable[] = [
         {
@@ -148,7 +176,6 @@ export const BuildTeamPermissions = (
             deny: ["VIEW_CHANNEL", "CONNECT", "SPEAK", "SEND_MESSAGES"],
         },
     ];
-
     members.forEach((memberId) =>
         teamPerms.push({
             id: memberId,
@@ -162,26 +189,31 @@ export const BuildTeamPermissions = (
 export const MakeTeamChannels = async (
     guild: Guild,
     teamName: string,
-    members: string[]
+    members: string[],
+    session?: ClientSession
 ): Promise<[GuildChannel, GuildChannel] | null> => {
     const category = await GetUnfilledTeamCategory(guild);
-    const updated = {...category};
-    updated.team_count += 1;
-
-    if (!(await FindAndReplace<CategoryType>(categoryCollection, category, updated))) {
+    const updateRes = await FindAndUpdate<CategoryType>(
+        categoryCollection,
+        category,
+        {$inc: {teamCount: 1}},
+        {session: session}
+    );
+    if (!updateRes) {
+        logger.warn("Failed to update category!");
         return null;
     }
 
     const teamPerms = BuildTeamPermissions(guild, members);
     const text = await guild.channels.create(teamName, {
         type: ChannelTypes.GUILD_TEXT,
-        parent: category.category_id,
+        parent: category.categoryID,
         permissionOverwrites: teamPerms,
     });
 
     const voice = await guild.channels.create(teamName + "-voice", {
         type: ChannelTypes.GUILD_VOICE,
-        parent: category.category_id,
+        parent: category.categoryID,
         permissionOverwrites: teamPerms,
     });
 
@@ -193,25 +225,23 @@ export const ValidateTeamName = (rawName: string): boolean => {
 
     const length = rawName.length <= Config.teams.max_name_length;
     const characters = !!rawName.match(/^[a-z0-9\-]+$/);
-    const standardized = !!discordified.match(/^(?:[a-z0-9]+(?:-?[a-z0-9]*))+$/);
+    const standardized = !!discordified.match(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)$/);
 
     return length && characters && standardized;
 };
 
 export const GetTeamAvailability = async (
     teamName: string,
-    ownerID: string
+    member: string
 ): Promise<TeamAvailability> => {
     const query: Query = {
-        $or: [TeamByName(teamName), TeamByMember(ownerID, true)],
+        $or: [{name: teamName}, {members: member}],
     };
     const result = await FindOne<TeamType>(teamCollection, query);
 
     if (result?.name === teamName) {
         return TeamAvailability.NAME_EXISTS;
-    } else if (result?.owner === ownerID) {
-        return TeamAvailability.OWNER_EXISTS;
-    } else if (result?.members.includes(ownerID)) {
+    } else if (result?.members.includes(member)) {
         return TeamAvailability.ALREADY_IN_TEAM;
     } else {
         return TeamAvailability.AVAILABLE;
@@ -234,53 +264,121 @@ export const GetUnfilledTeamCategory = async (guild: Guild): Promise<CategoryTyp
         {type: ChannelTypes.GUILD_CATEGORY}
     );
 
-    const inserted: CategoryType = {category_id: newCat.id, team_count: 0};
+    const inserted: CategoryType = {categoryID: newCat.id, teamCount: 0};
     db.insertOne(inserted);
 
     return inserted;
+};
+
+export const HandleLeaveTeam = async (
+    guild: Guild,
+    user: User,
+    team?: TeamType
+): Promise<string> => {
+    if (!team) {
+        const found = await FindOne<TeamType>(teamCollection, {members: user});
+        if (!found) {
+            return "Could not find user's team";
+        }
+
+        team = found;
+    }
+
+    if (team.members.length == 1) {
+        return HandleDeleteTeam(guild, team);
+    } else {
+        return HandleMemberLeave(guild, user, team);
+    }
+};
+
+const HandleDeleteTeam = async (guild: Guild, team: TeamType): Promise<string> => {
+    return WithTransaction(async (session) => {
+        const removed = await FindAndRemove(teamCollection, team, {session});
+        if (!removed) {
+            return "Failed to delete team";
+        }
+
+        let text = guild.channels.cache.get(team.textChannel);
+        let voice = guild.channels.cache.get(team.voiceChannel);
+
+        if (!text || !voice) {
+            return "Failed to get team channels";
+        }
+
+        const categoryReduced = await FindAndUpdate(
+            categoryCollection,
+            {categoryID: text.parentId},
+            {$inc: {teamCount: -1}},
+            {session}
+        );
+
+        if (!categoryReduced) {
+            return "Failed to decrement category team count";
+        }
+
+        const reason = "Team deleted";
+        await Promise.allSettled([text.delete(reason), voice.delete(reason)]);
+        return "";
+    });
+};
+
+const HandleMemberLeave = async (
+    guild: Guild,
+    user: User,
+    team: TeamType
+): Promise<string> => {
+    return WithTransaction(
+        async (session) => {
+            // remove member
+            const updated = await FindAndUpdate(
+                teamCollection,
+                {stdName: team.stdName},
+                {$pop: {invites: [user.id]}},
+                {session}
+            );
+            if (!updated) {
+                return "Couldn't remove member from team in database";
+            }
+
+            // resolve channels
+            let text = guild!.channels.cache.get(team.textChannel) as GuildChannel;
+            let voice = guild!.channels.cache.get(team.voiceChannel) as GuildChannel;
+            if (!text || !voice) {
+                return "Failed to get team channels";
+            }
+
+            // send leave message
+            await (text as GuildTextBasedChannel).send(
+                EmbedToMessage(
+                    ResponseEmbed()
+                        .setTitle(":confused: Member Left")
+                        .setDescription(`${user} has left the team.`)
+                )
+            );
+
+            const newPerms = BuildTeamPermissions(guild, team.members);
+            const reason = "Member left team";
+            try {
+                text.permissionOverwrites.set(newPerms, reason);
+                voice.permissionOverwrites.set(newPerms, reason);
+            } catch (err) {
+                return `${err}`;
+            }
+
+            return "";
+        },
+        async (err) => {
+            logger.error(err);
+        }
+    );
 };
 
 export const Discordify = (raw: string): string => {
     return raw.replaceAll(" ", "-").toLowerCase();
 };
 
-export const GetInviteId = (teamName: string, action: string): string => {
-    return `${action}#${teamName}#${new Date().getTime()}`;
-};
-
-export const ParseInviteId = (
-    inviteId: string
-): {action: string; teamName: string; id: string} => {
-    const split = inviteId.split("#");
-    return {
-        action: split[0],
-        teamName: split[1],
-        id: split[2],
-    };
-};
-
 // DATABASE QUERIES -----------------------------------------------------------
 
-export const TeamByName = (teamName: string): Query => {
-    return {name: teamName};
-};
-
-export const TeamByOwner = (ownerID: string): Query => {
-    return {owner: ownerID};
-};
-
-export const TeamByMember = (memberID: string, includeOwner?: boolean): Query => {
-    if (includeOwner) {
-        return {$or: [{members: memberID}, TeamByOwner(memberID)]};
-    } else {
-        return {members: memberID};
-    }
-};
-
-export const TeamByInvite = (inviteID: string): Query => {
-    return {invites: inviteID};
-};
-
 export const UnfilledCategory = (): Query => {
-    return {team_count: {$lt: Config.teams.teams_per_category}};
+    return {teamCount: {$lt: Config.teams.teams_per_category}};
 };

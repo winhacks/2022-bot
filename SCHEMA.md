@@ -10,7 +10,6 @@ Stores information about the teams that have been registered. Each document in t
 type TeamType = {
     name: string;
     stdName: string;
-    owner: string;
     textChannel: string;
     voiceChannel: string;
     members: string[];
@@ -18,13 +17,12 @@ type TeamType = {
 };
 ```
 
-- `name` is the plain-text name of the team. It is the exact name entered by the user in the `/team create` command.
-- `stdName` is a standardized format of `name`. It is strictly lowercase, and spaces are replaced with hyphens. It is to be used in searches where uniqueness is required.
-- `owner` is the Discord snowflake of the user the created the team. 
-- `textChannel` is the Discord snowflake of the text channel associated with the team.
-- `voiceChannel` is the Discord snowflake of the voice channel associated with the team.
-- `members` is an array of Discord user IDs, each of which is a member in the team. Does not contain the owner.
-- `pendingInvites` is an array of Discord message snowflakes, representing the messages that have been sent to users as invites to join the team.
+-   `name` is the plain-text name of the team. It is the exact name entered by the user in the `/team create` command.
+-   `stdName` is a standardized format of `name`. It is strictly lowercase, and spaces are replaced with hyphens. It is to be used in searches where uniqueness is required.
+-   `textChannel` is the Discord snowflake of the text channel associated with the team.
+-   `voiceChannel` is the Discord snowflake of the voice channel associated with the team.
+-   `members` is an array of Discord user IDs, each of which is a member in the team.
+-   `pendingInvites` is an array of Discord message snowflakes, representing the messages that have been sent to users as invites to join the team.
 
 ## channelCategories Collection
 
@@ -33,9 +31,9 @@ Stores information about the categories that have been created for teams in Disc
 ```ts
 type CategoryType = {
     category_id: string;
-    team_count: number;
+    teamCount: number;
 };
 ```
 
-- `category_id` is the Discord snowflake representing the category.
-- `team_count` is the number of teams that have been placed under this category. Note that this is not the number of channels, but the number of teams. If each team has 2 channels, only up to 25 teams may be included in a category.
+-   `category_id` is the Discord snowflake representing the category.
+-   `teamCount` is the number of teams that have been placed under this category. Note that this is not the number of channels, but the number of teams. If each team has 2 channels, only up to 25 teams may be included in a category.

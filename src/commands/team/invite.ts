@@ -1,10 +1,10 @@
 import {
     ButtonInteraction,
     CacheType,
+    CategoryChannel,
     Collection,
     CommandInteraction,
     Guild,
-    GuildChannel,
     Message,
     MessageActionRow,
     MessageButton,
@@ -19,76 +19,102 @@ import {
     WithTransaction,
 } from "../../helpers/database";
 import {
+    EmbedToMessage,
     GenericError,
     NotVerifiedResponse,
     ResponseEmbed,
     SafeReply,
+    SuccessResponse,
 } from "../../helpers/responses";
-import {TeamType} from "../../types";
+import {InviteType, TeamType} from "../../types";
 import {
+    BuildTeamPermissions,
     IsUserVerified,
     NotInGuildResponse,
     NotTeamLeaderResponse,
-    TeamByOwner,
     TeamFullResponse,
 } from "./team-shared";
 import {Document as MongoDocument} from "mongodb";
-import {Timestamp} from "../../helpers/misc";
+import {Remove, Timestamp} from "../../helpers/misc";
 import {MessageButtonStyles} from "discord.js/typings/enums";
 import {TimestampStyles} from "@discordjs/builders";
+import {logger} from "../../logger";
 
-// TODO: Create in-memory invite cache
-// TODO: Create database storage
-// TODO: Expire messages
+// FIXME: Need to investigate error caused by inviting member twice
+//        (seems to be caused by multiple sessions on MongoDB)
 
-export const InviteToTeam = async (intr: CommandInteraction<CacheType>): Promise<any> => {
+export const InviteToTeam = async (
+    intr: CommandInteraction<CacheType>,
+    team: TeamType
+): Promise<any> => {
     if (!intr.inGuild()) {
         return SafeReply(intr, NotInGuildResponse());
     } else if (!(await IsUserVerified(intr.user.id))) {
-        return SafeReply(intr, NotVerifiedResponse());
+        return SafeReply(intr, NotVerifiedResponse(true));
     }
 
-    const inviteTo = await FindOne<TeamType>(teamCollection, TeamByOwner(intr.user.id));
-    if (!inviteTo) {
-        return SafeReply(intr, NotTeamLeaderResponse());
-    } else if (inviteTo.members.length + 1 >= Config.teams.max_team_size) {
+    if (team.members.length >= Config.teams.max_team_size) {
         return SafeReply(intr, TeamFullResponse());
     }
 
     const invitee = intr.options.getUser("user", true);
 
     if (!(await IsUserVerified(invitee.id))) {
-        return SafeReply(intr, {
-            embeds: [
+        return SafeReply(
+            intr,
+            EmbedToMessage(
                 ResponseEmbed()
                     .setTitle(":x: User Not Verified")
                     .setDescription(
                         "You can only invite verified users to your team. Ask them to verify first with `/verify`."
-                    ),
-            ],
-        });
+                    )
+            )
+        );
     } else if (intr.user.id === invitee.id && !Config.dev_mode) {
-        return SafeReply(intr, {
-            embeds: [
+        return SafeReply(
+            intr,
+            EmbedToMessage(
                 ResponseEmbed()
                     .setTitle(":confused: You're Already In Your Team")
                     .setDescription(
                         "You tried to invite yourself to your own team. Sadly, cloning hasn't been invented yet."
-                    ),
-            ],
-        });
+                    )
+            )
+        );
+    } else if (team.members.includes(invitee.id)) {
+        return SafeReply(
+            intr,
+            EmbedToMessage(
+                ResponseEmbed()
+                    .setTitle(":confused: Member Already Joined")
+                    .setDescription("That user is already a member of your team.")
+            )
+        );
+    } else if (team.invites.findIndex((inv) => inv.invitee === invitee.id) !== -1) {
+        return SafeReply(
+            intr,
+            EmbedToMessage(
+                ResponseEmbed()
+                    .setTitle(":confused: Member Already Invited")
+                    .setDescription(
+                        "You already invited that user. Please wait a few minutes before trying again."
+                    )
+            )
+        );
     }
 
-    let message: Message<boolean>;
     const inviteDuration = Config.teams.invite_duration * 60_000;
-    const inviteID = `${Date.now()}#${inviteTo.stdName}`;
-    const result = await WithTransaction(async (session) => {
+    const invite: InviteType = {
+        teamName: team.name,
+        invitee: invitee.id,
+        inviteID: `${Date.now()}`,
+    };
+    let message: Message<boolean>;
+    const inviteError = await WithTransaction(async (session) => {
         const inviteAdd = await FindAndUpdate<TeamType>(
             teamCollection,
-            inviteTo,
-            {
-                $push: {invites: inviteID} as unknown as PushOperator<MongoDocument>,
-            },
+            team,
+            {$push: {invites: invite} as unknown as PushOperator<MongoDocument>},
             {session}
         );
         if (!inviteAdd) {
@@ -99,18 +125,18 @@ export const InviteToTeam = async (intr: CommandInteraction<CacheType>): Promise
             const buttonRow = new MessageActionRow().setComponents(
                 new MessageButton()
                     .setStyle(MessageButtonStyles.SECONDARY)
-                    .setCustomId(`decline#${inviteID}`)
+                    .setCustomId(`decline#${invite.inviteID}`)
                     .setLabel("Decline"),
                 new MessageButton()
                     .setStyle(MessageButtonStyles.PRIMARY)
-                    .setCustomId(`accept#${inviteID}`)
+                    .setCustomId(`accept#${invite.inviteID}`)
                     .setLabel("Accept")
             );
             const inviteMsg = ResponseEmbed()
                 .setTitle(":partying_face: You've Been Invited")
                 .setDescription(
                     [
-                        `You've been invited to join Team ${inviteTo.name}'s noble quest to`,
+                        `You've been invited to join Team ${team.name}'s noble quest to`,
                         `be the best there ever was at ${Config.bot_info.event_name}.`,
                         `This invite expires ${Timestamp(
                             Date.now() + inviteDuration,
@@ -118,138 +144,157 @@ export const InviteToTeam = async (intr: CommandInteraction<CacheType>): Promise
                         )}.`,
                     ].join(" ")
                 );
-            message = await intr.user.send({
+            message = await invitee.send({
                 embeds: [inviteMsg],
                 components: [buttonRow],
             });
         } catch (err) {
-            return `Failed to edit message: ${err}`;
+            return `Failed to invite user: ${err}`;
         }
 
         return "";
     });
 
-    const collector = intr.user.dmChannel!.createMessageComponentCollector({
+    // message send failed or something
+    if (inviteError) {
+        logger.debug(inviteError);
+        return SafeReply(intr, GenericError());
+    }
+
+    const collector = message!.createMessageComponentCollector({
         componentType: "BUTTON", // only accept button events
         max: 1, // makes the collector terminate after the first button is clicked.
         time: inviteDuration, // invite_duration from minutes to ms
     });
 
-    // message send failed or something
-    if (!result) {
-        return SafeReply(intr, GenericError());
-    }
-
-    // NOTE: invitee.dmChannel?.awaitMessageComponent() is a thing. Look into it
-
     collector.on("end", async (col, rsn) => {
-        await HandleCollectorTimeout(col, rsn, inviteID);
+        await HandleCollectorTimeout(col, rsn, invite, message);
     });
     collector.on("collect", async (buttonIntr) => {
+        let res;
         if (buttonIntr.customId.startsWith("accept")) {
-            await HandleOfferAccept(buttonIntr, intr.guild!);
+            res = await HandleOfferAccept(buttonIntr, intr.guild!, invite);
         } else {
-            await HandleOfferDecline(buttonIntr);
+            res = await HandleOfferDecline(buttonIntr, invite);
+        }
+
+        if (!res) {
+            buttonIntr.deferUpdate();
         }
     });
 
     // invite success
-    return SafeReply(intr, {
-        embeds: [
+    return SafeReply(
+        intr,
+        EmbedToMessage(
             ResponseEmbed()
                 .setTitle(":white_check_mark: Invite Sent")
                 .setDescription(
                     `${
                         intr.guild!.members.cache.get(invitee.id)!.displayName
                     } has been invited.`
-                ),
-        ],
-    });
+                )
+        )
+    );
 };
 
 const HandleOfferAccept = async (
     intr: MessageComponentInteraction<CacheType>,
-    guild: Guild
+    guild: Guild,
+    invite: InviteType
 ) => {
-    const inviteID = intr.customId.split("#").slice(1).join("#");
+    const team = await FindOne<TeamType>(teamCollection, {invites: invite});
 
-    const res = await WithTransaction(async (session) => {
-        const sizeGroup = [];
-        for (let i = 0; i < Config.teams.max_team_size - 1; i++) {
-            sizeGroup.push({members: {$size: i}});
-        }
+    if (!team) {
+        return "Team not found";
+    } else if (team.members.includes(intr.user.id) && !Config.dev_mode) {
+        return "Members cannot join teams they're already a part of";
+    } else if (team.members.length >= Config.teams.max_team_size) {
+        return "Team is full";
+    }
 
-        // TODO: replace this with a proper find and update. false indicates non-existent team, so that's the error condition
-        const team = await FindOne<TeamType>(
-            teamCollection,
-            {
-                invites: inviteID,
-                $or: sizeGroup,
-            },
-            {session}
-        );
+    const newTeam = {...team};
+    newTeam.members.push(intr.user.id);
+    newTeam.invites = Remove(newTeam.invites, invite);
 
-        if (!team) {
-            return "Team not found";
-        }
+    const teamText = guild.channels.cache.get(team.textChannel) as CategoryChannel;
+    const teamVoice = guild.channels.cache.get(team.voiceChannel) as CategoryChannel;
 
-        const updatedTeam = {...team};
-        updatedTeam.members.push(intr.user.id);
+    if (!teamText || !teamVoice) {
+        return "Couldn't find team channel(s)";
+    }
 
-        if (!(await FindAndUpdate(teamCollection, team, updatedTeam, {session}))) {
-            return "Failed to update team";
-        }
+    const oldTextPerms = teamText.permissionOverwrites.valueOf();
+    const oldVoicePerms = teamVoice.permissionOverwrites.valueOf();
 
-        // TODO: update permissions
-        const vc = guild.channels.cache.get(team.voiceChannel)! as GuildChannel;
-        const tc = guild.channels.cache.get(team.textChannel)! as GuildChannel;
+    const joinError = await WithTransaction(
+        async (session) => {
+            const newPerms = BuildTeamPermissions(guild, newTeam.members);
+            await Promise.allSettled([
+                teamText.permissionOverwrites.set(newPerms),
+                teamVoice.permissionOverwrites.set(newPerms),
+            ]);
 
-        const msg = intr.message as Message<boolean>;
-        try {
-            msg.edit({
-                embeds: [
-                    ResponseEmbed()
-                        .setTitle("Invite Accepted")
-                        .setDescription(
-                            `You accepted this invite ${Timestamp(Date.now())}.`
-                        ),
-                ],
+            const update = await FindAndUpdate(
+                teamCollection,
+                {invites: invite},
+                {
+                    $push: {members: invite.invitee},
+                    $pull: {invites: invite},
+                } as unknown as PushOperator<MongoDocument>,
+                {session}
+            );
+            if (!update) {
+                return "Failed to update team";
+            }
+
+            const msg = intr.message as Message<boolean>;
+            await msg.edit({
+                ...SuccessResponse(
+                    `You joined ${invite.teamName} ${Timestamp(Date.now())}.`
+                ),
                 components: [],
             });
-        } catch (err) {
-            return `Failed to edit message: ${err}`;
+
+            return "";
+        },
+        async (err) => {
+            logger.error(`Failed to join ${invite.teamName}: ${err}`);
+            await Promise.allSettled([
+                teamText.permissionOverwrites.set(oldTextPerms),
+                teamVoice.permissionOverwrites.set(oldVoicePerms),
+            ]);
         }
+    );
 
-        return "";
-    });
-
-    if (!res) {
-        SafeReply(intr, {
+    if (joinError) {
+        await (intr.message as Message<boolean>).edit({
             embeds: [
                 ResponseEmbed()
                     .setTitle(":x: Operation Failed")
                     .setDescription(
-                        "Something unexpected happened while trying to accept this invite. The team may be full."
+                        "Something unexpected happened while trying to accept this invite.\
+                         The team may be full. Please ask for a new invite."
                     ),
             ],
+            components: [],
         });
-    } else {
-        intr.deferUpdate();
+
+        return joinError;
     }
+    return "";
 };
 
-const HandleOfferDecline = async (intr: MessageComponentInteraction<CacheType>) => {
-    const inviteID = intr.customId.split("#").slice(1).join("#");
-
-    const res = await WithTransaction(async (session) => {
+const HandleOfferDecline = async (
+    intr: MessageComponentInteraction<CacheType>,
+    invite: InviteType
+) => {
+    const declineError = await WithTransaction(async (session) => {
         if (
             !(await FindAndUpdate(
                 teamCollection,
-                {invites: inviteID},
-                {
-                    // remove invite ID
-                    $pull: {invites: inviteID} as unknown as PullOperator<Document>,
-                },
+                {invites: invite},
+                {$pull: {invites: invite} as unknown as PullOperator<Document>},
                 {session}
             ))
         ) {
@@ -263,7 +308,9 @@ const HandleOfferDecline = async (intr: MessageComponentInteraction<CacheType>) 
                     ResponseEmbed()
                         .setTitle("Invite Declined")
                         .setDescription(
-                            `You declined this invite ${Timestamp(Date.now())}.`
+                            `You declined to join ${invite.teamName} ${Timestamp(
+                                Date.now()
+                            )}.`
                         ),
                 ],
                 components: [],
@@ -275,27 +322,45 @@ const HandleOfferDecline = async (intr: MessageComponentInteraction<CacheType>) 
         return "";
     });
 
-    if (!res) {
+    if (declineError) {
         SafeReply(intr, GenericError());
+        return declineError;
     } else {
         intr.deferUpdate();
+        return "";
     }
-};
-
-const HandleMessageExpiration = async (inviteID: string) => {
-    await FindAndUpdate(
-        teamCollection,
-        {invites: inviteID},
-        {$pull: {invites: inviteID} as unknown as PullOperator<Document>}
-    );
 };
 
 const HandleCollectorTimeout = async (
     _: Collection<string, ButtonInteraction<CacheType>>,
     reason: string,
-    inviteID: string
+    invite: InviteType,
+    message: Message<boolean>
 ) => {
-    if (reason === "time") {
-        await HandleMessageExpiration(inviteID);
+    if (reason !== "time") {
+        return;
     }
+
+    try {
+        await FindAndUpdate(
+            teamCollection,
+            {invites: invite},
+            {$pull: {invites: invite} as unknown as PullOperator<Document>}
+        );
+    } catch (err) {
+        logger.error(`Failed to remove invite on expiration: ${err}`);
+    }
+
+    message.edit({
+        components: [],
+        embeds: [
+            ResponseEmbed()
+                .setTitle(":confused: Invite Expired")
+                .setDescription(
+                    `This invite to join ${invite.teamName} expired ${Timestamp(
+                        Date.now()
+                    )}. You'll need to ask for a new invite.`
+                ),
+        ],
+    });
 };

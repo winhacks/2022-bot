@@ -1,77 +1,67 @@
 import {CacheType, CommandInteraction} from "discord.js";
 import {
-    FindAndReplace,
+    FindAndUpdate,
     FindOne,
     teamCollection,
     WithTransaction,
 } from "../../helpers/database";
+import {AllResolve} from "../../helpers/misc";
 import {GenericError, SafeReply, SuccessResponse} from "../../helpers/responses";
+import {logger} from "../../logger";
 import {TeamType} from "../../types";
 import {
     Discordify,
     InvalidNameResponse,
     NameTakenResponse,
     NotInGuildResponse,
-    NotInTeamResponse,
-    TeamByName,
-    TeamByOwner,
     ValidateTeamName,
 } from "./team-shared";
 
-// FINISHED
-
-export const RenameTeam = async (intr: CommandInteraction<CacheType>) => {
-    if (!intr.inGuild()) {
-        return SafeReply(intr, NotInGuildResponse());
-    }
-
-    const oldTeam = await FindOne<TeamType>(teamCollection, TeamByOwner(intr.user.id));
-    if (!oldTeam) {
-        return SafeReply(intr, NotInTeamResponse());
-    }
-
+export const RenameTeam = async (intr: CommandInteraction<CacheType>, team: TeamType) => {
     const newName = intr.options.getString("name", true);
     const discordified = Discordify(newName);
 
-    // validate name
-    if (oldTeam.name === newName) {
-        return SafeReply(intr, NameTakenResponse());
+    if (!intr.inGuild()) {
+        return SafeReply(intr, NotInGuildResponse());
     } else if (!ValidateTeamName(discordified)) {
         return SafeReply(intr, InvalidNameResponse());
-    } else if (await FindOne<TeamType>(teamCollection, TeamByName(newName))) {
+    } else if (await FindOne<TeamType>(teamCollection, {stdName: discordified})) {
         return SafeReply(intr, NameTakenResponse());
     }
 
     // ensure channels that will be renamed exist
-    const voice = intr.guild!.channels.cache.get(oldTeam.voiceChannel);
-    const text = intr.guild!.channels.cache.get(oldTeam.textChannel);
+    const voice = intr.guild!.channels.cache.get(team.voiceChannel);
+    const text = intr.guild!.channels.cache.get(team.textChannel);
 
     if (!voice || !text) {
         return SafeReply(intr, GenericError());
     }
 
-    // put new information
-    const newTeam = {...oldTeam};
-    newTeam.name = newName;
+    const result = await WithTransaction(
+        async (session) => {
+            // put new information
+            const updated = await FindAndUpdate<TeamType>(
+                teamCollection,
+                team,
+                {$set: [{name: newName}, {stdName: discordified}]},
+                {session}
+            );
+            if (!updated) {
+                return "Failed to update team";
+            }
 
-    const result = await WithTransaction(async (session): Promise<boolean> => {
-        if (
-            !(await FindAndReplace<TeamType>(teamCollection, oldTeam, newTeam, {session}))
-        ) {
-            return false;
+            // rename channels
+            const renameSuccess = await AllResolve([
+                voice.setName(`${discordified}-voice`),
+                text.setName(`${discordified}`),
+            ]);
+
+            return renameSuccess ? "" : "Failed to rename team channels";
+        },
+        async (error) => {
+            logger.error(`Failed to rename team: ${error}`);
         }
-
-        let rename = await Promise.allSettled([
-            voice.setName(`${discordified}-voice`),
-            text.setName(`${discordified}`),
-        ]);
-
-        if (rename.map((e) => e.status).includes("rejected")) {
-            return false;
-        }
-
-        return true;
-    });
+    );
 
     if (!result) {
         return SafeReply(intr, GenericError());
@@ -79,8 +69,8 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>) => {
 
     // tell user everything went OK
     let okRes = [
-        `Change your team name to ${newTeam.name}. Your channels are now`,
-        `<#${newTeam.textChannel}> and <#${newTeam.voiceChannel}>.`,
+        `Changed your team name to ${newName}. Your channels are now`,
+        `<#${team.textChannel}> and <#${team.voiceChannel}>.`,
     ];
 
     return SafeReply(intr, SuccessResponse(okRes.join(" ")));
