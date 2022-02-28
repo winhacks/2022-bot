@@ -49,6 +49,7 @@
         target_sheet: "",
         email_column: "A",
         verified_role_name: "Verified",
+        channel_name: "❗verify",
     },
 
     // /team and subcommand config

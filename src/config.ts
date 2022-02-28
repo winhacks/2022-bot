@@ -37,6 +37,7 @@ type ConfigType = {
         target_sheet: string;
         email_column: string;
         verified_role_name: string;
+        channel_name: string;
     };
 
     // teams command group config
