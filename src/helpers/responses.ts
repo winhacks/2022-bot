@@ -40,7 +40,7 @@ export const SafeReply = (
 /**
  *
  * @param intr The interaction to defer responding to
- * @param ephemeral Whether or not the deferral should be ephemeral
+ * @param ephemeral Whether or not the deferral should be ephemeral (default false)
  * @returns a promise that resolves either on error (which is caught and logged) or on success
  */
 export const SafeDeferReply = async (

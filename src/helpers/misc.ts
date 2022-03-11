@@ -1,7 +1,7 @@
 import {TimestampStyles, TimestampStylesString} from "@discordjs/builders";
 import {Collection, User} from "discord.js";
 
-export const Remove = (collection: Array<any>, element: any): Array<any> => {
+export const Remove = <T>(collection: Array<T>, element: T): Array<T> => {
     return collection.filter((e) => e !== element);
 };
 

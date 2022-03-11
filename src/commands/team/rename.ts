@@ -1,12 +1,12 @@
 import {CacheType, CommandInteraction} from "discord.js";
-import {
-    FindAndUpdate,
-    FindOne,
-    teamCollection,
-    WithTransaction,
-} from "../../helpers/database";
+import {FindAndUpdate, FindOne, teamCollection} from "../../helpers/database";
 import {AllResolve} from "../../helpers/misc";
-import {GenericError, SafeReply, SuccessResponse} from "../../helpers/responses";
+import {
+    GenericError,
+    SafeDeferReply,
+    SafeReply,
+    SuccessResponse,
+} from "../../helpers/responses";
 import {logger} from "../../logger";
 import {TeamType} from "../../types";
 import {
@@ -18,6 +18,8 @@ import {
 } from "./team-shared";
 
 export const RenameTeam = async (intr: CommandInteraction<CacheType>, team: TeamType) => {
+    await SafeDeferReply(intr);
+
     const newName = intr.options.getString("name", true);
     const discordified = Discordify(newName);
 
@@ -37,33 +39,23 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>, team: Team
         return SafeReply(intr, GenericError());
     }
 
-    const result = await WithTransaction(
-        async (session) => {
-            // put new information
-            const updated = await FindAndUpdate<TeamType>(
-                teamCollection,
-                team,
-                {$set: [{name: newName}, {stdName: discordified}]},
-                {session}
-            );
-            if (!updated) {
-                return "Failed to update team";
-            }
+    // rename channels
+    const renameSuccess = await AllResolve([
+        voice.setName(`${discordified}-voice`),
+        text.setName(`${discordified}`),
+    ]);
+    if (!renameSuccess) {
+        logger.error(`Failed to rename team channels.`);
+        return SafeReply(intr, GenericError());
+    }
 
-            // rename channels
-            const renameSuccess = await AllResolve([
-                voice.setName(`${discordified}-voice`),
-                text.setName(`${discordified}`),
-            ]);
-
-            return renameSuccess ? "" : "Failed to rename team channels";
-        },
-        async (error) => {
-            logger.error(`Failed to rename team: ${error}`);
-        }
+    const updated = await FindAndUpdate<TeamType>(
+        teamCollection,
+        {stdName: team.stdName},
+        {$set: {name: newName, stdName: discordified}}
     );
-
-    if (!result) {
+    if (!updated) {
+        logger.error(`Failed to updated team in database.`);
         return SafeReply(intr, GenericError());
     }
 

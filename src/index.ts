@@ -11,7 +11,7 @@ import {AuthenticateMongo, CountEntities, verifiedCollection} from "./helpers/da
 
 let client: ClientType;
 
-const start = async () => {
+const start = async (): Promise<void> => {
     logger.info("Loading config...");
     LoadConfig("config.json5");
 
@@ -92,6 +92,11 @@ const start = async () => {
             }
         }
     });
+
+    if (Config.dev_mode) {
+        client.on("error", logger.error);
+        client.on("warn", logger.warn);
+    }
 
     logger.info(`Bot setup has finished: ${numReg} commands registered.`);
 };

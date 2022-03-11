@@ -5,7 +5,7 @@ import {
     SlashCommandUserOption,
 } from "@discordjs/builders";
 import {CommandInteraction, CacheType} from "discord.js";
-import {GenericError, SafeReply} from "../helpers/responses";
+import {GenericError, SafeDeferReply, SafeReply} from "../helpers/responses";
 import {CommandType, TeamType} from "../types";
 import {CreateTeam} from "./team/create";
 import {TeamInfo} from "./team/info";
@@ -13,7 +13,11 @@ import {RenameTeam} from "./team/rename";
 import {InviteToTeam} from "./team/invite";
 import {LeaveTeam} from "./team/leave";
 import {FindOne, teamCollection} from "../helpers/database";
-import {NotInTeamChannelResponse, NotInTeamResponse} from "./team/team-shared";
+import {
+    InTeamChannelResponse,
+    NotInTeamChannelResponse,
+    NotInTeamResponse,
+} from "./team/team-shared";
 
 // FINISHED
 
@@ -82,14 +86,14 @@ const teamModule: CommandType = {
         // info command can be used anywhere
         if (subcommand === "info") {
             return TeamInfo(intr, team);
+        } else if (subcommand === "leave") {
+            if (intr.channelId === team.textChannel) {
+                return SafeReply(intr, InTeamChannelResponse(team.textChannel, true));
+            }
+            return LeaveTeam(intr, team);
         }
 
         if (intr.channelId !== team.textChannel) {
-            // this command cannot be used inside the team's channel
-            if (subcommand === "leave") {
-                return LeaveTeam(intr, team);
-            }
-
             return SafeReply(intr, NotInTeamChannelResponse(team.textChannel, true));
         }
 

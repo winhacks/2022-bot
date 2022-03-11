@@ -23,6 +23,7 @@ import {
     GenericError,
     NotVerifiedResponse,
     ResponseEmbed,
+    SafeDeferReply,
     SafeReply,
     SuccessResponse,
 } from "../../helpers/responses";
@@ -58,6 +59,8 @@ export const InviteToTeam = async (
     }
 
     const invitee = intr.options.getUser("user", true);
+
+    await SafeDeferReply(intr);
 
     if (!(await IsUserVerified(invitee.id))) {
         return SafeReply(
@@ -171,15 +174,35 @@ export const InviteToTeam = async (
         await HandleCollectorTimeout(col, rsn, invite, message);
     });
     collector.on("collect", async (buttonIntr) => {
-        let res;
         if (buttonIntr.customId.startsWith("accept")) {
-            res = await HandleOfferAccept(buttonIntr, intr.guild!, invite);
+            const error = await HandleOfferAccept(buttonIntr, intr.guild!, invite);
+            if (!error) {
+                SafeReply(
+                    buttonIntr,
+                    SuccessResponse(
+                        `You joined ${invite.teamName} ${Timestamp(Date.now())}.`
+                    )
+                );
+            } else {
+                SafeReply(buttonIntr, GenericError());
+            }
         } else {
-            res = await HandleOfferDecline(buttonIntr, invite);
-        }
-
-        if (!res) {
-            buttonIntr.deferUpdate();
+            const error = await HandleOfferDecline(buttonIntr, invite);
+            if (!error) {
+                SafeReply(buttonIntr, {
+                    embeds: [
+                        ResponseEmbed()
+                            .setTitle("Invite Declined")
+                            .setDescription(
+                                `You declined to join ${invite.teamName} ${Timestamp(
+                                    Date.now()
+                                )}.`
+                            ),
+                    ],
+                });
+            } else {
+                SafeReply(buttonIntr, GenericError());
+            }
         }
     });
 
@@ -198,6 +221,7 @@ export const InviteToTeam = async (
     );
 };
 
+// TODO: clean up the message handling
 const HandleOfferAccept = async (
     intr: MessageComponentInteraction<CacheType>,
     guild: Guild,
@@ -249,12 +273,7 @@ const HandleOfferAccept = async (
             }
 
             const msg = intr.message as Message<boolean>;
-            await msg.edit({
-                ...SuccessResponse(
-                    `You joined ${invite.teamName} ${Timestamp(Date.now())}.`
-                ),
-                components: [],
-            });
+            await msg.edit({components: []});
 
             return "";
         },
@@ -267,68 +286,33 @@ const HandleOfferAccept = async (
         }
     );
 
-    if (joinError) {
-        await (intr.message as Message<boolean>).edit({
-            embeds: [
-                ResponseEmbed()
-                    .setTitle(":x: Operation Failed")
-                    .setDescription(
-                        "Something unexpected happened while trying to accept this invite.\
-                         The team may be full. Please ask for a new invite."
-                    ),
-            ],
-            components: [],
-        });
-
-        return joinError;
-    }
-    return "";
+    return joinError;
 };
 
 const HandleOfferDecline = async (
     intr: MessageComponentInteraction<CacheType>,
     invite: InviteType
 ) => {
-    const declineError = await WithTransaction(async (session) => {
-        if (
-            !(await FindAndUpdate(
-                teamCollection,
-                {invites: invite},
-                {$pull: {invites: invite} as unknown as PullOperator<Document>},
-                {session}
-            ))
-        ) {
+    return await WithTransaction(async (session) => {
+        const updateError = await FindAndUpdate(
+            teamCollection,
+            {invites: invite},
+            {$pull: {invites: invite} as unknown as PullOperator<Document>},
+            {session}
+        );
+        if (!updateError) {
             return "Failed to remove invite from team";
         }
 
         const msg = intr.message as Message<boolean>;
         try {
-            msg.edit({
-                embeds: [
-                    ResponseEmbed()
-                        .setTitle("Invite Declined")
-                        .setDescription(
-                            `You declined to join ${invite.teamName} ${Timestamp(
-                                Date.now()
-                            )}.`
-                        ),
-                ],
-                components: [],
-            });
+            msg.edit({components: []});
         } catch (_) {
             return "Failed replace invite with declined status";
         }
 
         return "";
     });
-
-    if (declineError) {
-        SafeReply(intr, GenericError());
-        return declineError;
-    } else {
-        intr.deferUpdate();
-        return "";
-    }
 };
 
 const HandleCollectorTimeout = async (

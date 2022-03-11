@@ -49,8 +49,6 @@ const verifyModule: CommandType = {
     execute: async (intr: CommandInteraction<CacheType>): Promise<any> => {
         const email = intr.options.getString("email", true).toLowerCase();
 
-        logger.info("Hit");
-
         // ensure command running in guild
         if (!intr.inGuild()) {
             return SafeReply(intr, NotInGuildResponse());
@@ -144,6 +142,8 @@ const verifyModule: CommandType = {
 
         // verification went OK
         if (result) {
+            intr.client.emit("userVerified");
+
             logger.info(`Verified "${PrettyUser(intr.user)}" with ${email}`);
             if (intr.user.id !== intr.guild?.ownerId) {
                 return SafeReply(intr, SuccessResponse("You are now verified."));

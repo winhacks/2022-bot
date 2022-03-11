@@ -2,14 +2,14 @@ import {readFileSync} from "fs";
 import {logger} from "./logger";
 import {parse as parseJSON5} from "json5";
 
-type ModeType = {
+interface ModeType {
     api_token: string;
     app_id: string;
     bot_uid: number;
     guild: string;
-};
+}
 
-type ConfigType = {
+interface ConfigType {
     // discord API config
     production: ModeType;
     development: ModeType;
@@ -66,7 +66,7 @@ type ConfigType = {
         instagram?: string;
         linkedIn?: string;
     };
-};
+}
 
 let Config: ConfigType;
 

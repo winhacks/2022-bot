@@ -72,7 +72,7 @@ export const WithTransaction = async (
     rollback?: {(error: string): Promise<void>}
 ): Promise<string> => {
     const session = mongoClient.startSession();
-    rollback = rollback ?? (async (e) => {});
+    rollback = rollback ?? (async (_) => {});
 
     try {
         session.startTransaction();

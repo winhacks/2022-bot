@@ -1,5 +1,4 @@
 import {
-    CategoryChannel,
     Guild,
     GuildChannel,
     GuildTextBasedChannel,
@@ -7,12 +6,11 @@ import {
     User,
 } from "discord.js";
 import {ChannelTypes} from "discord.js/typings/enums";
-import {ClientSession} from "mongodb";
+import {ClientSession, PullOperator, Document as MongoDocument} from "mongodb";
 import {Config} from "../../config";
 import {
     categoryCollection,
     FindAndRemove,
-    FindAndReplace,
     FindAndUpdate,
     FindOne,
     GetClient,
@@ -121,6 +119,24 @@ export const TeamFullResponse = (ephemeral: boolean = false) => {
     };
 };
 
+export const InTeamChannelResponse = (
+    textChannelID: string,
+    ephemeral: boolean = false
+) => {
+    return {
+        ephemeral: ephemeral,
+        embeds: [
+            ResponseEmbed()
+                .setTitle("Wrong Channel")
+                .setDescription(
+                    `You cannot use this command in your team text channel, ${ChannelLink(
+                        textChannelID
+                    )}.`
+                ),
+        ],
+    };
+};
+
 export const NotInTeamChannelResponse = (
     textChannelID: string,
     ephemeral: boolean = false
@@ -133,7 +149,7 @@ export const NotInTeamChannelResponse = (
                 .setDescription(
                     `You can only use this command in your team text channel, ${ChannelLink(
                         textChannelID
-                    )}`
+                    )}.`
                 ),
         ],
     };
@@ -173,12 +189,14 @@ export const BuildTeamPermissions = (
     const teamPerms: OverwriteResolvable[] = [
         {
             id: everyoneID,
+            type: "role",
             deny: ["VIEW_CHANNEL", "CONNECT", "SPEAK", "SEND_MESSAGES"],
         },
     ];
     members.forEach((memberId) =>
         teamPerms.push({
             id: memberId,
+            type: "member",
             allow: ["VIEW_CHANNEL", "CONNECT", "SPEAK", "SEND_MESSAGES"],
         })
     );
@@ -333,7 +351,7 @@ const HandleMemberLeave = async (
             const updated = await FindAndUpdate(
                 teamCollection,
                 {stdName: team.stdName},
-                {$pop: {invites: [user.id]}},
+                {$pull: {members: user.id} as unknown as PullOperator<MongoDocument>},
                 {session}
             );
             if (!updated) {
@@ -356,7 +374,7 @@ const HandleMemberLeave = async (
                 )
             );
 
-            const newPerms = BuildTeamPermissions(guild, team.members);
+            const newPerms = BuildTeamPermissions(guild, Remove(team.members, user.id));
             const reason = "Member left team";
             try {
                 text.permissionOverwrites.set(newPerms, reason);

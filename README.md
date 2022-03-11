@@ -77,11 +77,21 @@ Once you have a database, you need to add its details to the config. Most of the
 -   `collection_name`: the name of the database collection to store team information in
 -   `max_name_length`: the number of characters which is considered too long fora team name. Discord limits this to 100.
 
-Teams status:
+# Known Issues
 
--   create: working
--   info: working
--   invite: working
--   leave: working (I think, needs QA)
--   rename: unknown
-    -   Non-ephemeral error when not permitted
+This section lists any known issues with the bot that I have decided not to fix for the time being. Usually, these are events that I consider "unlikely".
+
+## Team Operations - Transaction Fighting (Medium Priority)
+
+### Issue Description
+
+`WithTransaction` asks the MongoDB server for a session (a transaction). If another session is requested, an error is thrown which may crash the bot.
+
+### Example Scenario
+
+User A invites User B and User C to their team. Both Users receive the invite in their DM and promptly respond to it. User B selects "accept" (first transaction). Moments after, while the system is still processing User B's request, User C selects "accept" (second transaction). There is now a second session being requested which is not allowed.
+
+### Proposed Solution(s)
+
+-   An event queue preventing two `WithTransaction` calls from requesting a session while the other is still using its session.
+-   Rewriting some scenarios that currently utilize `WithTransaction` to use messier but transaction-free code.

@@ -14,6 +14,10 @@ export interface CommandType {
     execute: (interaction: CommandInteraction<CacheType>) => Promise<any>;
 }
 
+export interface EventType {
+    execute: () => any;
+}
+
 export interface ClientType extends Client {
     commands: Collection<string, CommandType>;
 }
@@ -26,34 +30,34 @@ export enum TeamAvailability {
 
 export type Query = Filter<MongoDocument>;
 
-export type TeamType = {
+export interface TeamType {
     name: string;
     stdName: string;
     textChannel: string;
     voiceChannel: string;
     members: string[];
     invites: InviteType[];
-};
+}
 
-export type InviteType = {
+export interface InviteType {
     teamName: string;
     inviteID: string;
     invitee: string;
-};
+}
 
-export type CategoryType = {
+export interface CategoryType {
     categoryID: string;
     teamCount: number;
-};
+}
 
-export type VerifiedUserType = {
+export interface VerifiedUserType {
     userID: string;
     verifiedAt: number;
     email: string;
     cardInfo: CardInfoType;
-};
+}
 
-export type CardInfoType = {
+export interface CardInfoType {
     authorizedCard: boolean;
     firstName?: string;
     lastName?: string;
@@ -66,4 +70,4 @@ export type CardInfoType = {
     studyLocation?: string;
     phone?: string;
     email?: string;
-};
+}
