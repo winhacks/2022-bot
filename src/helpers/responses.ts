@@ -67,6 +67,7 @@ export const ResponseEmbed = () => {
 export const EmbedToMessage = (embed: MessageEmbed): MessageOptions => {
     return {embeds: [embed]};
 };
+
 // SHARED RESPONSES -----------------------------------------------------------
 
 export const SuccessResponse = (message: string, ephemeral: boolean = false) => {

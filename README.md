@@ -95,3 +95,11 @@ User A invites User B and User C to their team. Both Users receive the invite in
 
 -   An event queue preventing two `WithTransaction` calls from requesting a session while the other is still using its session.
 -   Rewriting some scenarios that currently utilize `WithTransaction` to use messier but transaction-free code.
+
+# To-Do List:
+
+-   MUST set up events and remove fire TeamLeave when member leaves server
+-   Set up event system
+-   Fire event when user verifies
+
+    -   Update watching status

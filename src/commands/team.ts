@@ -5,7 +5,7 @@ import {
     SlashCommandUserOption,
 } from "@discordjs/builders";
 import {CommandInteraction, CacheType} from "discord.js";
-import {GenericError, SafeDeferReply, SafeReply} from "../helpers/responses";
+import {GenericError, SafeReply} from "../helpers/responses";
 import {CommandType, TeamType} from "../types";
 import {CreateTeam} from "./team/create";
 import {TeamInfo} from "./team/info";
@@ -13,11 +13,7 @@ import {RenameTeam} from "./team/rename";
 import {InviteToTeam} from "./team/invite";
 import {LeaveTeam} from "./team/leave";
 import {FindOne, teamCollection} from "../helpers/database";
-import {
-    InTeamChannelResponse,
-    NotInTeamChannelResponse,
-    NotInTeamResponse,
-} from "./team/team-shared";
+import {NotInTeamChannelResponse, NotInTeamResponse} from "./team/team-shared";
 
 // FINISHED
 
@@ -39,7 +35,7 @@ const teamModule: CommandType = {
         .addSubcommand(
             new SlashCommandSubcommandBuilder()
                 .setName("rename")
-                .setDescription("Rename your team. You must be the team leader.")
+                .setDescription("Rename your team.")
                 .addStringOption(
                     new SlashCommandStringOption()
                         .setName("name")
@@ -83,27 +79,26 @@ const teamModule: CommandType = {
             return SafeReply(intr, NotInTeamResponse(true));
         }
 
-        // info command can be used anywhere
+        // info/leave command can be used anywhere
         if (subcommand === "info") {
             return TeamInfo(intr, team);
         } else if (subcommand === "leave") {
-            if (intr.channelId === team.textChannel) {
-                return SafeReply(intr, InTeamChannelResponse(team.textChannel, true));
-            }
             return LeaveTeam(intr, team);
+        } else if (subcommand === "invite") {
+            return InviteToTeam(intr, team);
         }
 
-        if (intr.channelId !== team.textChannel) {
+        // commands that must be run in team channel go here
+        if (intr.channelId === team.textChannel) {
+            // rename is the only such command
+            if (subcommand === "rename") {
+                return RenameTeam(intr, team);
+            }
+
             return SafeReply(intr, NotInTeamChannelResponse(team.textChannel, true));
         }
 
-        if (subcommand === "rename") {
-            return RenameTeam(intr, team);
-        } else if (subcommand === "invite") {
-            return InviteToTeam(intr, team);
-        } else {
-            return SafeReply(intr, GenericError());
-        }
+        return SafeReply(intr, GenericError());
     },
 };
 
