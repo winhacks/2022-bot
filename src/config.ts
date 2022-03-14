@@ -60,12 +60,10 @@ interface ConfigType {
         description: string;
     };
 
-    socials: {
-        facebook?: string;
-        twitter?: string;
-        instagram?: string;
-        linkedIn?: string;
-    };
+    socials: Array<{
+        displayName: string;
+        link: string;
+    }>;
 }
 
 let Config: ConfigType;

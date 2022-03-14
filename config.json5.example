@@ -62,11 +62,18 @@
         category_base_name: "Teams",
     },
 
-    // social links. First letter of key becomes capitalized and name hyperlinks to value
-    socials: {
-        twitter: "https://twitter.com/YourTwitter",
-        facebook: "https://facebook.com/YourFacebook",
-        linkedIn: "https://linkedin.com/company/YourCompany",
-        instagram: "https://instagram.com/YourInstagram",
-    },
+    // displayName is the text that will be shown in the socials embed, link is the link it will point to
+    // The stream command searches for a link named "twitch", "twitchtv", or "twitch.tv" (not case sensitive)
+    // so that is the name you should give your twitch link if you have one
+    socials: [
+        {displayName: "Twitter", link: "https://twitter.com/WinHacksCA"},
+        {displayName: "Facebook", link: "https://facebook.com/WinHacksCA"},
+        {displayName: "LinkedIn", link: "https://linkedin.com/company/winhacks"},
+        {displayName: "Instagram", link: "https://instagram.com/winhacksca"},
+        {displayName: "Twitch", link: "https://twitch.tv/uwindsorcss"},
+        {
+            displayName: "YouTube",
+            link: "https://www.youtube.com/channel/UCMph1_SzSomH2cUF7j_YqUA",
+        },
+    ],
 }

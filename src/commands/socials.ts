@@ -22,29 +22,23 @@ const socialsModule: CommandType = {
             embed.setThumbnail(Config.bot_info.thumbnail);
         }
 
-        if (!Config.socials || Object.entries(Config.socials).length === 0) {
+        if (!Config.socials || Config.socials.length === 0) {
             return SafeReply(
                 intr,
                 EmbedToMessage(
                     ResponseEmbed()
                         .setTitle(":confused: No Socials")
-                        .setDescription(
-                            "There are no socials configured. Its not you, its me."
-                        )
+                        .setDescription("There are no socials. Its not you, its me.")
                 )
             );
         }
 
-        const description = Object.entries(Config.socials)?.map(([key, value]) => {
-            const capitalized = key[0].toUpperCase() + key.slice(1);
-            if (!value) {
-                return capitalized;
-            }
+        const lines = [];
+        for (const {displayName, link} of Config.socials) {
+            lines.push(hyperlink(displayName, link));
+        }
 
-            return hyperlink(capitalized, value);
-        });
-
-        embed.setDescription(description.join("\n"));
+        embed.setDescription(lines.join("\n"));
         return SafeReply(intr, EmbedToMessage(embed));
     },
 };
