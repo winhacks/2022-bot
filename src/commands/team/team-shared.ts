@@ -165,12 +165,12 @@ export const MakeTeam = (
     teamName: string,
     text: string,
     voice: string,
-    members: string[]
+    member: string
 ): TeamType => {
     return {
         name: teamName,
         stdName: Discordify(teamName),
-        members: members,
+        members: [member],
         textChannel: text,
         voiceChannel: voice,
         invites: [],
@@ -207,15 +207,14 @@ export const BuildTeamPermissions = (
 export const MakeTeamChannels = async (
     guild: Guild,
     teamName: string,
-    members: string[],
-    session?: ClientSession
+    members: string[]
 ): Promise<[GuildChannel, GuildChannel] | null> => {
     const category = await GetUnfilledTeamCategory(guild);
     const updateRes = await FindAndUpdate<CategoryType>(
         categoryCollection,
         category,
         {$inc: {teamCount: 1}},
-        {session: session}
+        {upsert: true}
     );
     if (!updateRes) {
         logger.warn("Failed to update category!");

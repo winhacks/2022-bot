@@ -8,7 +8,7 @@ export const TeamInfo = async (
     intr: CommandInteraction<CacheType>,
     team: TeamType
 ): Promise<any> => {
-    if (!intr.guild) {
+    if (!intr.inGuild()) {
         return SafeReply(intr, NotInGuildResponse());
     }
 

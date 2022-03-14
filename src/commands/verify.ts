@@ -129,9 +129,10 @@ const verifyModule: CommandType = {
         }
 
         // verify user
+        const member = intr.member as GuildMember;
         const result = await DoVerifyUser(
             intr.guild!,
-            intr.member as GuildMember,
+            member,
             email,
             await GetUserData(
                 Config.verify.target_sheet_id,
@@ -142,7 +143,7 @@ const verifyModule: CommandType = {
 
         // verification went OK
         if (result) {
-            intr.client.emit("userVerified");
+            intr.client.emit("userVerified", member);
 
             logger.info(`Verified "${PrettyUser(intr.user)}" with ${email}`);
             if (intr.user.id !== intr.guild?.ownerId) {

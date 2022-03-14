@@ -185,5 +185,6 @@ export const FindAndRemove = async <T>(
 ): Promise<boolean> => {
     const db = await GetClient(collection);
     const result = await db.findOneAndDelete(toDelete, {session: options?.session});
-    return !!result.ok || !(options?.required ?? true);
+
+    return !!result.ok && (result.value !== null || !(options?.required ?? true));
 };
