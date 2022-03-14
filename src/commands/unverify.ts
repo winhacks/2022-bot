@@ -69,7 +69,7 @@ const unverifyModule: CommandType = {
         const res = await HandleUnverify(guild, member);
 
         if (res) {
-            intr.client.emit("userUnverified");
+            intr.client.emit("userUnverified", member);
             logger.info(`Un-verified ${PrettyUser(intr.user)}`);
             return SafeReply(intr, SuccessResponse("You're no longer verified."));
         } else {

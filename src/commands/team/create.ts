@@ -52,48 +52,29 @@ export const CreateTeam = async (intr: CommandInteraction<CacheType>): Promise<a
         return SafeReply(intr, AlreadyInTeamResponse());
     }
 
-    let txt: GuildChannel, vce: GuildChannel;
-    const createError = await WithTransaction(
-        async (session) => {
-            // attempt to make channels
-            const newChannels = await MakeTeamChannels(
-                intr.guild!,
-                discordified,
-                [intr.user.id],
-                session
-            );
+    let teamText: GuildChannel;
+    let teamVoice: GuildChannel;
+    const newChannels = await MakeTeamChannels(intr.guild!, discordified, [intr.user.id]);
 
-            if (!newChannels) {
-                return "Failed to make team channels";
-            }
-            [txt, vce] = newChannels;
-
-            // attempt to make and insert team
-            const newTeam: TeamType = MakeTeam(teamName, txt.id, vce.id, [intr.user.id]);
-            const putResult = await InsertOne<TeamType>(teamCollection, newTeam, {
-                session,
-            });
-
-            if (!putResult) {
-                return "Failed to insert new team";
-            }
-
-            return "";
-        },
-        async (err) => {
-            logger.error(`Failed to create team: ${err}`);
-            await Promise.allSettled([txt?.delete(), vce?.delete()]);
-        }
-    );
-
-    if (createError) {
+    if (!newChannels) {
+        logger.error("Failed to make team channels");
         return SafeReply(intr, GenericError());
-    } else {
-        const memberCount = Config.teams.max_team_size - 1;
-        const successMsg = [
-            `Team ${teamName} has been created. Your channels are ${txt!}`,
-            `and ${vce!}. Invite up to ${memberCount} others with \`/team invite\`.`,
-        ];
-        return SafeReply(intr, SuccessResponse(successMsg.join(" ")));
     }
+    [teamText, teamVoice] = newChannels;
+
+    // attempt to make and insert team
+    const newTeam: TeamType = MakeTeam(teamName, teamText.id, teamVoice.id, intr.user.id);
+    const putResult = await InsertOne<TeamType>(teamCollection, newTeam);
+
+    if (!putResult) {
+        logger.error("Failed to insert new team");
+        return SafeReply(intr, GenericError());
+    }
+
+    const memberCount = Config.teams.max_team_size - 1;
+    const successMsg = [
+        `Team ${teamName} has been created. Your channels are ${teamText}`,
+        `and ${teamVoice}. Invite up to ${memberCount} others with \`/team invite\`.`,
+    ];
+    return SafeReply(intr, SuccessResponse(successMsg.join(" ")));
 };

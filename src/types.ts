@@ -15,7 +15,9 @@ export interface CommandType {
 }
 
 export interface EventType {
-    execute: () => any;
+    eventName: string;
+    once: boolean;
+    execute: (client: ClientType, ...args: any[]) => Promise<any>;
 }
 
 export interface ClientType extends Client {

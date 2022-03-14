@@ -36,3 +36,19 @@ export const AllResolve = async (promises: readonly any[]) => {
         return true;
     }
 };
+
+export const SelectPlural = (
+    n: number,
+    zero: string,
+    singular: string,
+    plural: string
+) => {
+    switch (n) {
+        case 0:
+            return zero;
+        case 1:
+            return singular;
+        default:
+            return plural;
+    }
+};
