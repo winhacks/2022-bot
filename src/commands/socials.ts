@@ -17,7 +17,7 @@ const socialsModule: CommandType = {
             return SafeReply(intr, NotInGuildResponse());
         }
 
-        const embed = ResponseEmbed().setTitle("Socials");
+        const embed = ResponseEmbed().setTitle(":computer: Socials");
         if (Config.bot_info.thumbnail) {
             embed.setThumbnail(Config.bot_info.thumbnail);
         }

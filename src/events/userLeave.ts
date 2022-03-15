@@ -12,10 +12,10 @@ const memberLeaveModule: EventType = {
         });
 
         if (unverifyResult) {
-            logger.info(`${member} (${member.id}) left and was unverified.`);
+            logger.info(`User ${member.id} left and was unverified.`);
             client.emit("userUnverified", member);
         } else {
-            logger.info(`${member} (${member.id}) left.`);
+            logger.info(`User ${member.id} left.`);
         }
     },
 };

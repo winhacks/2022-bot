@@ -51,7 +51,7 @@ const unverifyModule: CommandType = {
 
         // check if user is in team
         const userTeam = await FindOne<TeamType>(teamCollection, {members: intr.user.id});
-        if (userTeam) {
+        if (userTeam !== null) {
             return SafeReply(
                 intr,
                 EmbedToMessage(

@@ -11,7 +11,7 @@ const userVerifiedModule: EventType = {
         const registeredCount = SetVerifiedCount((await GetVerifiedCount()) + 1);
         const message = SelectPlural(
             registeredCount,
-            "nobody :(",
+            "nobody 😦",
             "1 verified hacker",
             `${registeredCount} verified hackers`
         );

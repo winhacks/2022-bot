@@ -143,7 +143,7 @@ export const InviteToTeam = async (
                 [
                     `You've been invited to join Team ${team.name}`,
                     `for ${Config.bot_info.event_name} by`,
-                    (intr.member! as GuildMember).displayName,
+                    `${(intr.member! as GuildMember).displayName}.`,
                     `This invite expires ${Timestamp(
                         Date.now() + inviteDuration,
                         TimestampStyles.LongDateTime

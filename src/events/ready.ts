@@ -11,7 +11,7 @@ const readyEventModule: EventType = {
         const registeredCount = await GetVerifiedCount();
         const message = SelectPlural(
             registeredCount,
-            "nobody :frowning:",
+            "nobody 😦",
             "1 verified hacker",
             `${registeredCount} verified hackers`
         );
