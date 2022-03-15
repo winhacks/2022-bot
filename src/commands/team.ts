@@ -88,14 +88,9 @@ const teamModule: CommandType = {
             return InviteToTeam(intr, team);
         }
 
-        // commands that must be run in team channel go here
-        if (intr.channelId === team.textChannel) {
-            // rename is the only such command
-            if (subcommand === "rename") {
-                return RenameTeam(intr, team);
-            }
-
-            return SafeReply(intr, NotInTeamChannelResponse(team.textChannel, true));
+        // rename is the only such command
+        if (subcommand === "rename") {
+            return RenameTeam(intr, team);
         }
 
         return SafeReply(intr, GenericError());
