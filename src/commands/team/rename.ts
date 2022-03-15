@@ -17,6 +17,7 @@ import {
     ValidateTeamName,
 } from "./team-shared";
 
+// FIXME: weird janky database issues with this module. Doesn't seem to happen in others.
 export const RenameTeam = async (intr: CommandInteraction<CacheType>, team: TeamType) => {
     await SafeDeferReply(intr);
 

@@ -13,7 +13,7 @@ import {RenameTeam} from "./team/rename";
 import {InviteToTeam} from "./team/invite";
 import {LeaveTeam} from "./team/leave";
 import {FindOne, teamCollection} from "../helpers/database";
-import {NotInTeamChannelResponse, NotInTeamResponse} from "./team/team-shared";
+import {NotInTeamResponse} from "./team/team-shared";
 
 // FINISHED
 
@@ -88,10 +88,10 @@ const teamModule: CommandType = {
             return InviteToTeam(intr, team);
         }
 
-        // rename is the only such command
-        if (subcommand === "rename") {
-            return RenameTeam(intr, team);
-        }
+        // disabled because the module is broken
+        // if (subcommand === "rename") {
+        //     return RenameTeam(intr, team);
+        // }
 
         return SafeReply(intr, GenericError());
     },
