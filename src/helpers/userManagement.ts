@@ -1,11 +1,11 @@
 import {GuildMember, RoleResolvable} from "discord.js";
-import {CountEntities, teamCollection} from "./database";
+import {CountEntities, verifiedCollection} from "./database";
 
 let memberCount: number | undefined = undefined;
 
 export const GetVerifiedCount = async (): Promise<number> => {
     if (memberCount === undefined) {
-        memberCount = await CountEntities(teamCollection);
+        memberCount = await CountEntities(verifiedCollection);
     }
 
     return memberCount;
