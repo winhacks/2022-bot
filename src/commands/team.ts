@@ -32,17 +32,17 @@ const teamModule: CommandType = {
                         .setRequired(true)
                 )
         )
-        .addSubcommand(
-            new SlashCommandSubcommandBuilder()
-                .setName("rename")
-                .setDescription("Rename your team.")
-                .addStringOption(
-                    new SlashCommandStringOption()
-                        .setName("name")
-                        .setDescription("The new name for your team")
-                        .setRequired(true)
-                )
-        )
+        // .addSubcommand(
+        //     new SlashCommandSubcommandBuilder()
+        //         .setName("rename")
+        //         .setDescription("Rename your team.")
+        //         .addStringOption(
+        //             new SlashCommandStringOption()
+        //                 .setName("name")
+        //                 .setDescription("The new name for your team")
+        //                 .setRequired(true)
+        //         )
+        // )
         .addSubcommand(
             new SlashCommandSubcommandBuilder()
                 .setName("invite")
