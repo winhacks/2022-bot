@@ -225,13 +225,18 @@ export const InviteToTeam = async (
     });
 
     const teamText = intr.guild!.channels.cache.get(team.textChannel) as TextBasedChannel;
+    const invitedMember = intr.guild!.members.cache.get(invitee.id)!;
     const invitedEmbed = ResponseEmbed()
         .setTitle(":white_check_mark: Invite Sent")
         .setDescription(
-            `${intr.guild!.members.cache.get(invitee.id)!.displayName} has been invited.`
+            `${invitedMember.displayName} has been invited. The invite will expire in ${Config.teams.invite_duration} minutes.`
         );
 
-    teamText.send({embeds: [invitedEmbed]});
+    try {
+        await teamText.send({embeds: [invitedEmbed]});
+    } catch (err) {
+        logger.warn(`Failed to send channel creation message to ${teamText}: ${err}`);
+    }
     return SafeReply(intr, {embeds: [invitedEmbed], ephemeral: true});
 };
 
