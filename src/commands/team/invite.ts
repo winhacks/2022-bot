@@ -81,7 +81,6 @@ export const InviteToTeam = async (
         );
     }
 
-    const inviteDuration = Config.teams.invite_duration * 60_000;
     const invite: InviteType = {
         teamName: team.name,
         invitee: invitee.id,

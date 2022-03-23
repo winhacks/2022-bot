@@ -56,7 +56,6 @@
     teams: {
         database_name: "botDB",
         max_name_length: 20,
-        invite_duration: 5, // duration in minutes
         max_team_size: 4,
         teams_per_category: 25, // each team creates 2 channels. Should be at MOST floor(DISCORD_CATEGORY_CHANNEL_LIMIT / 2)
         category_base_name: "Teams",
