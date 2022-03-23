@@ -3,10 +3,14 @@ import {
     GuildChannel,
     GuildTextBasedChannel,
     OverwriteResolvable,
+    PermissionOverwriteOptions,
+    PermissionOverwrites,
+    Permissions,
+    TextChannel,
     User,
+    VoiceChannel,
 } from "discord.js";
-import {ChannelTypes} from "discord.js/typings/enums";
-import {ClientSession, PullOperator, Document as MongoDocument} from "mongodb";
+import {ChannelTypes, OverwriteTypes} from "discord.js/typings/enums";
 import {Config} from "../../config";
 import {
     categoryCollection,
@@ -15,19 +19,34 @@ import {
     FindOne,
     GetClient,
     teamCollection,
-    verifiedCollection,
     WithTransaction,
 } from "../../helpers/database";
-import {ChannelLink, Remove} from "../../helpers/misc";
-import {EmbedToMessage, ResponseEmbed} from "../../helpers/responses";
+import {ChannelLink} from "../../helpers/misc";
+import {ResponseEmbed, SuccessMessage} from "../../helpers/responses";
 import {logger} from "../../logger";
-import {
-    CategoryType,
-    Query,
-    TeamAvailability,
-    TeamType,
-    VerifiedUserType,
-} from "../../types";
+import {CategoryType, Query, TeamAvailability, TeamType} from "../../types";
+
+// PERMISSIONS ----------------------------------------------------------------
+
+export const TEAM_MEMBER_PERMS: PermissionOverwriteOptions = {
+    VIEW_CHANNEL: true,
+    CONNECT: true,
+    SPEAK: true,
+    SEND_MESSAGES: true,
+};
+export const NOT_TEAM_MEMBER_PERMS: PermissionOverwriteOptions = {
+    VIEW_CHANNEL: false,
+    CONNECT: false,
+    SPEAK: false,
+    SEND_MESSAGES: false,
+};
+
+const FLAG_SET = [
+    Permissions.FLAGS.VIEW_CHANNEL,
+    Permissions.FLAGS.SEND_MESSAGES,
+    Permissions.FLAGS.CONNECT,
+    Permissions.FLAGS.SPEAK,
+];
 
 // RESPONSES ------------------------------------------------------------------
 
@@ -157,10 +176,6 @@ export const NotInTeamChannelResponse = (
 
 // UTILITIES ------------------------------------------------------------------
 
-export const IsUserVerified = async (id: string) => {
-    return !!(await FindOne<VerifiedUserType>(verifiedCollection, {userID: id}));
-};
-
 export const MakeTeam = (
     teamName: string,
     text: string,
@@ -177,38 +192,47 @@ export const MakeTeam = (
     } as TeamType;
 };
 
-export const BuildTeamPermissions = (
+// FIXME: once magic is no longer needed, this should be removed and downgraded to a single member use case
+export const MakeTeamPermissions = (
     guild: Guild,
-    members: string[]
+    teamName: string,
+    forMembers: string[]
 ): OverwriteResolvable[] => {
-    const everyoneID = guild.roles.cache.findKey((role) => role.name === "@everyone");
-    if (!everyoneID) {
-        throw new Error(`Somehow the @everyone role isn't cached for ${guild.id}`);
+    const overwrites: OverwriteResolvable[] = [
+        {id: guild.roles.everyone, type: "role", deny: FLAG_SET},
+    ];
+
+    for (const member of forMembers) {
+        overwrites.push({id: member, type: "member", allow: FLAG_SET});
     }
 
-    const teamPerms: OverwriteResolvable[] = [
-        {
-            id: everyoneID,
-            type: "role",
-            deny: ["VIEW_CHANNEL", "CONNECT", "SPEAK", "SEND_MESSAGES"],
-        },
-    ];
-    members.forEach((memberId) =>
-        teamPerms.push({
-            id: memberId,
-            type: "member",
-            allow: ["VIEW_CHANNEL", "CONNECT", "SPEAK", "SEND_MESSAGES"],
-        })
-    );
+    for (const name of Config.teams.moderator_roles) {
+        const roleId = guild.roles.cache.findKey((r) => r.name === name);
+        if (!roleId) {
+            const warning = [
+                `Can't give role ${name} access to`,
+                `${teamName}'s channels: role not found`,
+            ].join(" ");
 
-    return teamPerms;
+            logger.warn(warning);
+            continue;
+        }
+
+        overwrites.push({
+            id: roleId,
+            type: "role",
+            allow: FLAG_SET,
+        });
+    }
+
+    return overwrites;
 };
 
 export const MakeTeamChannels = async (
     guild: Guild,
     teamName: string,
-    members: string[]
-): Promise<[GuildChannel, GuildChannel] | null> => {
+    forMember: string
+): Promise<[TextChannel, VoiceChannel] | null> => {
     const category = await GetUnfilledTeamCategory(guild);
     const updateRes = await FindAndUpdate<CategoryType>(
         categoryCollection,
@@ -221,20 +245,20 @@ export const MakeTeamChannels = async (
         return null;
     }
 
-    const teamPerms = BuildTeamPermissions(guild, members);
-    const text = await guild.channels.create(teamName, {
-        type: ChannelTypes.GUILD_TEXT,
-        parent: category.categoryID,
-        permissionOverwrites: teamPerms,
-    });
+    const overwrites = MakeTeamPermissions(guild, teamName, [forMember]);
+    return Promise.all([
+        guild.channels.create(teamName, {
+            type: ChannelTypes.GUILD_TEXT,
+            parent: category.categoryID,
+            permissionOverwrites: overwrites,
+        }),
 
-    const voice = await guild.channels.create(teamName + "-voice", {
-        type: ChannelTypes.GUILD_VOICE,
-        parent: category.categoryID,
-        permissionOverwrites: teamPerms,
-    });
-
-    return [text, voice];
+        guild.channels.create(teamName + "-voice", {
+            type: ChannelTypes.GUILD_VOICE,
+            parent: category.categoryID,
+            permissionOverwrites: overwrites,
+        }),
+    ]);
 };
 
 export const ValidateTeamName = (rawName: string): boolean => {
@@ -251,9 +275,7 @@ export const GetTeamAvailability = async (
     teamName: string,
     member: string
 ): Promise<TeamAvailability> => {
-    const query: Query = {
-        $or: [{name: teamName}, {members: member}],
-    };
+    const query: Query<TeamType> = {$or: [{name: teamName}, {members: member}]};
     const result = await FindOne<TeamType>(teamCollection, query);
 
     if (result?.name === teamName) {
@@ -266,7 +288,7 @@ export const GetTeamAvailability = async (
 };
 
 export const GetUnfilledTeamCategory = async (guild: Guild): Promise<CategoryType> => {
-    const db = await GetClient(categoryCollection);
+    const db = await GetClient<CategoryType>(categoryCollection);
 
     // query DB for an unfilled category
     const dbResult = await FindOne<CategoryType>(categoryCollection, UnfilledCategory());
@@ -301,42 +323,7 @@ export const HandleLeaveTeam = async (
         team = found;
     }
 
-    if (team.members.length == 1) {
-        return HandleDeleteTeam(guild, team);
-    } else {
-        return HandleMemberLeave(guild, user, team);
-    }
-};
-
-const HandleDeleteTeam = async (guild: Guild, team: TeamType): Promise<string> => {
-    return WithTransaction(async (session) => {
-        const removed = await FindAndRemove(teamCollection, team, {session});
-        if (!removed) {
-            return "Failed to delete team";
-        }
-
-        let text = guild.channels.cache.get(team.textChannel);
-        let voice = guild.channels.cache.get(team.voiceChannel);
-
-        if (!text || !voice) {
-            return "Failed to get team channels";
-        }
-
-        const categoryReduced = await FindAndUpdate(
-            categoryCollection,
-            {categoryID: text.parentId},
-            {$inc: {teamCount: -1}},
-            {session}
-        );
-
-        if (!categoryReduced) {
-            return "Failed to decrement category team count";
-        }
-
-        const reason = "Team deleted";
-        await Promise.allSettled([text.delete(reason), voice.delete(reason)]);
-        return "";
-    });
+    return HandleMemberLeave(guild, user, team);
 };
 
 const HandleMemberLeave = async (
@@ -350,7 +337,7 @@ const HandleMemberLeave = async (
             const updated = await FindAndUpdate(
                 teamCollection,
                 {stdName: team.stdName},
-                {$pull: {members: user.id} as unknown as PullOperator<MongoDocument>},
+                {$pull: {members: user.id}},
                 {session}
             );
             if (!updated) {
@@ -358,26 +345,27 @@ const HandleMemberLeave = async (
             }
 
             // resolve channels
-            let text = guild!.channels.cache.get(team.textChannel) as GuildChannel;
-            let voice = guild!.channels.cache.get(team.voiceChannel) as GuildChannel;
+            let text = (await guild!.channels.fetch(team.textChannel)) as GuildChannel;
+            let voice = (await guild!.channels.fetch(team.voiceChannel)) as GuildChannel;
             if (!text || !voice) {
                 return "Failed to get team channels";
             }
 
+            const extra =
+                team.members.length === 1 ? "**This team is now abandoned.**" : "";
+
             // send leave message
             await (text as GuildTextBasedChannel).send(
-                EmbedToMessage(
-                    ResponseEmbed()
-                        .setTitle(":confused: Member Left")
-                        .setDescription(`${user} has left the team.`)
-                )
+                SuccessMessage({
+                    emote: ":frowning:",
+                    title: "Member Left",
+                    message: `${user} has left the team. ${extra}`,
+                })
             );
 
-            const newPerms = BuildTeamPermissions(guild, Remove(team.members, user.id));
-            const reason = "Member left team";
             try {
-                text.permissionOverwrites.set(newPerms, reason);
-                voice.permissionOverwrites.set(newPerms, reason);
+                text.permissionOverwrites.delete(user.id, "Member left team");
+                voice.permissionOverwrites.delete(user.id, "Member left team");
             } catch (err) {
                 return `${err}`;
             }
@@ -396,6 +384,6 @@ export const Discordify = (raw: string): string => {
 
 // DATABASE QUERIES -----------------------------------------------------------
 
-export const UnfilledCategory = (): Query => {
+export const UnfilledCategory = (): Query<CategoryType> => {
     return {teamCount: {$lt: Config.teams.teams_per_category}};
 };

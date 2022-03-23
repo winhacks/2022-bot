@@ -1,11 +1,11 @@
 import {CacheType, CommandInteraction} from "discord.js";
 import {FindAndUpdate, FindOne, teamCollection} from "../../helpers/database";
-import {AllResolve} from "../../helpers/misc";
+import {AllResolve, ChannelLink} from "../../helpers/misc";
 import {
-    GenericError,
+    ErrorMessage,
     SafeDeferReply,
     SafeReply,
-    SuccessResponse,
+    SuccessMessage,
 } from "../../helpers/responses";
 import {logger} from "../../logger";
 import {TeamType} from "../../types";
@@ -37,7 +37,7 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>, team: Team
     const text = intr.guild!.channels.cache.get(team.textChannel);
 
     if (!voice || !text) {
-        return SafeReply(intr, GenericError());
+        return SafeReply(intr, ErrorMessage());
     }
 
     // rename channels
@@ -47,7 +47,7 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>, team: Team
     ]);
     if (!renameSuccess) {
         logger.error(`Failed to rename team channels.`);
-        return SafeReply(intr, GenericError());
+        return SafeReply(intr, ErrorMessage());
     }
 
     const updated = await FindAndUpdate<TeamType>(
@@ -57,14 +57,18 @@ export const RenameTeam = async (intr: CommandInteraction<CacheType>, team: Team
     );
     if (!updated) {
         logger.error(`Failed to updated team in database.`);
-        return SafeReply(intr, GenericError());
+        return SafeReply(intr, ErrorMessage());
     }
 
     // tell user everything went OK
-    let okRes = [
-        `Changed your team name to ${newName}. Your channels are now`,
-        `<#${team.textChannel}> and <#${team.voiceChannel}>.`,
-    ];
-
-    return SafeReply(intr, SuccessResponse(okRes.join(" ")));
+    return SafeReply(
+        intr,
+        SuccessMessage({
+            message: [
+                `Changed your team name to ${newName}. Your channels are`,
+                `now ${ChannelLink(team.textChannel)} and`,
+                `${ChannelLink(team.voiceChannel)}.`,
+            ].join(" "),
+        })
+    );
 };

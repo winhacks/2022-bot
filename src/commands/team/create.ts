@@ -1,12 +1,11 @@
-import {CommandInteraction, CacheType, GuildChannel} from "discord.js";
+import {CommandInteraction, CacheType} from "discord.js";
 import {Config} from "../../config";
-import {InsertOne, teamCollection, WithTransaction} from "../../helpers/database";
+import {InsertOne, teamCollection} from "../../helpers/database";
 import {
-    GenericError,
-    NotVerifiedResponse,
+    ErrorMessage,
     SafeDeferReply,
     SafeReply,
-    SuccessResponse,
+    SuccessMessage,
 } from "../../helpers/responses";
 import {logger} from "../../logger";
 import {TeamAvailability, TeamType} from "../../types";
@@ -15,7 +14,6 @@ import {
     Discordify,
     GetTeamAvailability,
     InvalidNameResponse,
-    IsUserVerified,
     MakeTeam,
     MakeTeamChannels,
     NameTakenResponse,
@@ -28,8 +26,6 @@ import {
 export const CreateTeam = async (intr: CommandInteraction<CacheType>): Promise<any> => {
     if (!intr.guild) {
         return SafeReply(intr, NotInGuildResponse());
-    } else if (!(await IsUserVerified(intr.user.id))) {
-        return SafeReply(intr, NotVerifiedResponse(true));
     }
 
     await SafeDeferReply(intr, true);
@@ -52,15 +48,13 @@ export const CreateTeam = async (intr: CommandInteraction<CacheType>): Promise<a
         return SafeReply(intr, AlreadyInTeamResponse());
     }
 
-    let teamText: GuildChannel;
-    let teamVoice: GuildChannel;
-    const newChannels = await MakeTeamChannels(intr.guild!, discordified, [intr.user.id]);
-
+    const newChannels = await MakeTeamChannels(intr.guild!, discordified, intr.user.id);
     if (!newChannels) {
         logger.error("Failed to make team channels");
-        return SafeReply(intr, GenericError());
+        return SafeReply(intr, ErrorMessage());
     }
-    [teamText, teamVoice] = newChannels;
+
+    const [teamText, teamVoice] = newChannels;
 
     // attempt to make and insert team
     const newTeam: TeamType = MakeTeam(teamName, teamText.id, teamVoice.id, intr.user.id);
@@ -68,13 +62,18 @@ export const CreateTeam = async (intr: CommandInteraction<CacheType>): Promise<a
 
     if (!putResult) {
         logger.error("Failed to insert new team");
-        return SafeReply(intr, GenericError());
+        return SafeReply(intr, ErrorMessage());
     }
 
     const memberCount = Config.teams.max_team_size - 1;
-    const successMsg = [
-        `Team ${teamName} has been created. Your channels are ${teamText}`,
-        `and ${teamVoice}. Invite up to ${memberCount} others with \`/team invite\`.`,
-    ];
-    return SafeReply(intr, SuccessResponse(successMsg.join(" ")));
+    return SafeReply(
+        intr,
+        SuccessMessage({
+            message: [
+                `Team ${teamName} has been created. Your channels are`,
+                `${teamText} and ${teamVoice}. Invite up to ${memberCount}`,
+                "others with `/team invite`.",
+            ].join(" "),
+        })
+    );
 };

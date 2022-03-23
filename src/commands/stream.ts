@@ -1,7 +1,7 @@
-import {hyperlink, SlashCommandBuilder} from "@discordjs/builders";
-import {CacheType, CommandInteraction, MessageEmbed} from "discord.js";
+import {SlashCommandBuilder} from "@discordjs/builders";
+import {CacheType, CommandInteraction} from "discord.js";
 import {Config} from "../config";
-import {GenericError, ResponseEmbed, SafeReply} from "../helpers/responses";
+import {ErrorMessage, ResponseEmbed, SafeReply} from "../helpers/responses";
 import {CommandType} from "../types";
 
 const streamModule: CommandType = {
@@ -18,7 +18,7 @@ const streamModule: CommandType = {
         );
 
         if (!twitchSocial) {
-            return SafeReply(intr, GenericError(true));
+            return SafeReply(intr, ErrorMessage({ephemeral: true}));
         }
 
         const embed = ResponseEmbed()

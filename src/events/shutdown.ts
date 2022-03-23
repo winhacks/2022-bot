@@ -8,7 +8,7 @@ const shutdownModule: EventType = {
         try {
             client.user?.setPresence({status: "invisible", activities: []});
         } catch (err) {
-            logger.warn("Failed to update presence while exiting");
+            logger.warn("Failed to set bot as offline while exiting");
         }
     },
 };

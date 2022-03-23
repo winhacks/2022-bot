@@ -1,7 +1,7 @@
 import {hyperlink, SlashCommandBuilder} from "@discordjs/builders";
 import {CacheType, CommandInteraction} from "discord.js";
 import {Config} from "../config";
-import {EmbedToMessage, ResponseEmbed, SafeReply} from "../helpers/responses";
+import {ErrorMessage, ResponseEmbed, SafeReply} from "../helpers/responses";
 import {CommandType} from "../types";
 import {NotInGuildResponse} from "./team/team-shared";
 
@@ -17,20 +17,20 @@ const socialsModule: CommandType = {
             return SafeReply(intr, NotInGuildResponse());
         }
 
-        const embed = ResponseEmbed().setTitle(":computer: Socials");
-        if (Config.bot_info.thumbnail) {
-            embed.setThumbnail(Config.bot_info.thumbnail);
-        }
-
         if (!Config.socials || Config.socials.length === 0) {
             return SafeReply(
                 intr,
-                EmbedToMessage(
-                    ResponseEmbed()
-                        .setTitle(":confused: No Socials")
-                        .setDescription("There are no socials. Its not you, its me.")
-                )
+                ErrorMessage({
+                    emote: ":face_with_monocle:",
+                    title: "No Socials",
+                    message: "There are no socials. It's not you, its me.",
+                })
             );
+        }
+
+        const embed = ResponseEmbed().setTitle(":computer: Socials");
+        if (Config.bot_info.thumbnail) {
+            embed.setThumbnail(Config.bot_info.thumbnail);
         }
 
         const lines = [];
@@ -39,7 +39,7 @@ const socialsModule: CommandType = {
         }
 
         embed.setDescription(lines.join("\n"));
-        return SafeReply(intr, EmbedToMessage(embed));
+        return SafeReply(intr, {embeds: [embed]});
     },
 };
 

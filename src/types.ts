@@ -2,7 +2,13 @@ import {
     SlashCommandBuilder,
     SlashCommandSubcommandsOnlyBuilder,
 } from "@discordjs/builders";
-import {CacheType, Client, Collection, CommandInteraction} from "discord.js";
+import {
+    ButtonInteraction,
+    CacheType,
+    Client,
+    Collection,
+    CommandInteraction,
+} from "discord.js";
 import {Filter, Document as MongoDocument} from "mongodb";
 
 export interface CommandType {
@@ -20,6 +26,10 @@ export interface EventType {
     execute: (client: ClientType, ...args: any[]) => Promise<any>;
 }
 
+export interface ButtonAction {
+    execute: (interaction: ButtonInteraction<CacheType>) => Promise<any>;
+}
+
 export interface ClientType extends Client {
     commands: Collection<string, CommandType>;
 }
@@ -30,7 +40,7 @@ export enum TeamAvailability {
     "AVAILABLE",
 }
 
-export type Query = Filter<MongoDocument>;
+export type Query<T> = Filter<T>;
 
 export interface TeamType {
     name: string;

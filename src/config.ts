@@ -45,9 +45,9 @@ interface ConfigType {
         database_name: string;
         max_name_length: number;
         max_team_size: number;
-        invite_duration: number;
         teams_per_category: number;
         category_base_name: string;
+        moderator_roles: string[];
     };
 
     // info command config
