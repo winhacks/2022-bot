@@ -59,7 +59,7 @@ const inviteAction: ButtonAction = {
             return SafeReply(
                 intr,
                 ErrorMessage({
-                    title: ":x: Operation Failed",
+                    title: "Operation Failed",
                     message: error,
                     ephemeral: true, // allows to user to de-clutter their DMs
                 })

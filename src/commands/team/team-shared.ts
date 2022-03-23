@@ -192,15 +192,20 @@ export const MakeTeam = (
     } as TeamType;
 };
 
-const MakeTeamPermissions = (
+// FIXME: once magic is no longer needed, this should be removed and downgraded to a single member use case
+export const MakeTeamPermissions = (
     guild: Guild,
     teamName: string,
-    forMember: string
+    forMembers: string[]
 ): OverwriteResolvable[] => {
     const overwrites: OverwriteResolvable[] = [
-        {id: forMember, type: "member", allow: FLAG_SET},
         {id: guild.roles.everyone, type: "role", deny: FLAG_SET},
     ];
+
+    for (const member of forMembers) {
+        overwrites.push({id: member, type: "member", allow: FLAG_SET});
+    }
+
     for (const name of Config.teams.moderator_roles) {
         const roleId = guild.roles.cache.findKey((r) => r.name === name);
         if (!roleId) {
@@ -240,7 +245,7 @@ export const MakeTeamChannels = async (
         return null;
     }
 
-    const overwrites = MakeTeamPermissions(guild, teamName, forMember);
+    const overwrites = MakeTeamPermissions(guild, teamName, [forMember]);
     return Promise.all([
         guild.channels.create(teamName, {
             type: ChannelTypes.GUILD_TEXT,
