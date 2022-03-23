@@ -48,6 +48,7 @@ interface ConfigType {
         invite_duration: number;
         teams_per_category: number;
         category_base_name: string;
+        moderator_roles: string[];
     };
 
     // info command config

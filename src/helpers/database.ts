@@ -5,16 +5,14 @@ import {
     Document,
     UpdateFilter,
     ClientSession,
+    OptionalUnlessRequiredId,
 } from "mongodb";
 import {Config} from "../config";
 import {logger} from "../logger";
 import {Query} from "../types";
 
 let mongoClient: MongoClient;
-const collectionCache: Collection<string, MongoCollection<Document>> = new Collection<
-    string,
-    MongoCollection<Document>
->();
+const collectionCache = new Collection<string, MongoCollection<any>>();
 
 export const teamCollection = "teams";
 export const categoryCollection = "team_categories";
@@ -35,7 +33,7 @@ export const AuthenticateMongo = async () => {
     });
 };
 
-export const GetClient = async (name: string) => {
+export const GetClient = async <T>(name: string) => {
     if (Config.dev_mode) {
         name += "_development";
     }
@@ -43,7 +41,7 @@ export const GetClient = async (name: string) => {
     // try cache
     const cached = collectionCache.get(name);
     if (cached) {
-        return cached;
+        return cached as MongoCollection<T>;
     }
 
     // cache miss, find existing collection in database
@@ -54,9 +52,9 @@ export const GetClient = async (name: string) => {
 
     // create new collection if it doesn't exist
     if (collections.length == 0) {
-        collection = await db.createCollection(name);
+        collection = await db.createCollection<T>(name);
     } else {
-        collection = db.collection(name);
+        collection = db.collection<T>(name);
     }
 
     // add collection into cache for fast access in the future
@@ -110,11 +108,17 @@ export const CountEntities = async (collection: string): Promise<number> => {
 // inserts a document into the named collection
 export const InsertOne = async <T>(
     collection: string,
-    toInsert: T,
+    toInsert: OptionalUnlessRequiredId<T>,
     options?: Partial<{session: ClientSession}>
 ): Promise<boolean> => {
-    const db = await GetClient(collection);
-    const result = await db.insertOne(toInsert, {session: options?.session});
+    const db = await GetClient<T>(collection);
+    let result;
+    try {
+        result = await db.insertOne(toInsert, {session: options?.session});
+    } catch (err) {
+        logger.error(`Inserting ${JSON.stringify(toInsert)} failed: ${err}`);
+        return false;
+    }
 
     return result.acknowledged;
 };
@@ -122,10 +126,10 @@ export const InsertOne = async <T>(
 // returns a document matching the query inside the named collection
 export const FindOne = async <T>(
     collection: string,
-    query: Query,
+    query: Query<T>,
     options?: Partial<{session: ClientSession}>
 ): Promise<T | null> => {
-    const db = await GetClient(collection);
+    const db = await GetClient<T>(collection);
 
     const result = await db.findOne(query, {session: options?.session});
     return result as T | null;
@@ -134,11 +138,11 @@ export const FindOne = async <T>(
 // finds and replaces a document matching the query inside the named collection
 export const FindAndReplace = async <T>(
     collection: string,
-    find: T | Query,
+    find: T | Query<T>,
     replaceWith: T,
     options?: Partial<{session: ClientSession; required: boolean}>
 ): Promise<boolean> => {
-    const db = await GetClient(collection);
+    const db = await GetClient<T>(collection);
     const result = await db.findOneAndReplace(find, replaceWith, {
         session: options?.session,
     });
@@ -149,12 +153,12 @@ export const FindAndReplace = async <T>(
 // finds a document and applies the update to it
 export const FindAndUpdate = async <T>(
     collection: string,
-    find: T | Query,
-    update: UpdateFilter<Document> | Partial<T>,
+    find: T | Query<T>,
+    update: UpdateFilter<T> | Partial<T>,
     options?: Partial<{session: ClientSession; required: boolean; upsert: boolean}>
 ): Promise<boolean> => {
     const upsert = options?.upsert ?? false;
-    const db = await GetClient(collection);
+    const db = await GetClient<T>(collection);
     const result = await db.updateOne(find, update, {
         upsert: upsert,
         session: options?.session,
@@ -165,11 +169,11 @@ export const FindAndUpdate = async <T>(
 
 export const FindAndUpdateAll = async <T>(
     collection: string,
-    find: T | Query,
-    update: UpdateFilter<Document>,
+    find: T | Query<T>,
+    update: UpdateFilter<T>,
     options?: Partial<{session: ClientSession; required: boolean}>
 ) => {
-    const db = await GetClient(collection);
+    const db = await GetClient<T>(collection);
     const result = await db.updateMany(find, update, {session: options?.session});
     return (
         (!!result.acknowledged && result.matchedCount !== 0) ||
@@ -180,10 +184,10 @@ export const FindAndUpdateAll = async <T>(
 // finds and removes a document matching the query from the named collection
 export const FindAndRemove = async <T>(
     collection: string,
-    toDelete: T | Query,
+    toDelete: T | Query<T>,
     options?: Partial<{session: ClientSession; required: boolean}>
 ): Promise<boolean> => {
-    const db = await GetClient(collection);
+    const db = await GetClient<T>(collection);
     const result = await db.findOneAndDelete(toDelete, {session: options?.session});
 
     return !!result.ok && (result.value !== null || !(options?.required ?? true));

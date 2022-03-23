@@ -3,13 +3,7 @@ import {
     SlashCommandBuilder,
     SlashCommandStringOption,
 } from "@discordjs/builders";
-import {
-    CacheType,
-    CommandInteraction,
-    Guild,
-    GuildMember,
-    ReactionCollector,
-} from "discord.js";
+import {CacheType, CommandInteraction, Guild, GuildMember} from "discord.js";
 import {Config} from "../config";
 import {
     FindOne,
@@ -18,13 +12,7 @@ import {
     WithTransaction,
 } from "../helpers/database";
 import {PrettyUser} from "../helpers/misc";
-import {
-    EmbedToMessage,
-    GenericError,
-    ResponseEmbed,
-    SafeReply,
-    SuccessResponse,
-} from "../helpers/responses";
+import {ErrorMessage, SafeReply, SuccessMessage} from "../helpers/responses";
 import {GetColumn, GetUserData} from "../helpers/sheetsAPI";
 import {GiveUserRole, RenameUser, TakeUserRole} from "../helpers/userManagement";
 import {logger} from "../logger";
@@ -61,23 +49,23 @@ const verifyModule: CommandType = {
         if (existingUser?.userID === intr.user.id) {
             return SafeReply(
                 intr,
-                EmbedToMessage(
-                    ResponseEmbed()
-                        .setTitle(":fire: Already Verified")
-                        .setDescription("You're already verified.")
-                )
+                ErrorMessage({
+                    emote: ":fire:",
+                    title: "Already Verified",
+                    message: "You're already verified, no need to verify again.",
+                })
             );
         } else if (existingUser?.email === email) {
             return SafeReply(
                 intr,
-                EmbedToMessage(
-                    ResponseEmbed()
-                        .setTitle(":fire: Email Already Used")
-                        .setDescription(
-                            `It looks like someone is already registered with that email. If this ${"\
-                            "} is a mistake, please reach out to a Lead or Admin.`
-                        )
-                )
+                ErrorMessage({
+                    emote: ":fire:",
+                    title: "Email Already Used",
+                    message: [
+                        `It looks like someone is already registered with that email."
+                        "If this is a mistake, please reach out to a Lead or Admin.`,
+                    ].join(" "),
+                })
             );
         }
 
@@ -85,13 +73,10 @@ const verifyModule: CommandType = {
         if (!email.match(emailRegex)) {
             return SafeReply(
                 intr,
-                EmbedToMessage(
-                    ResponseEmbed()
-                        .setTitle(":x: Invalid Email")
-                        .setDescription(
-                            "That doesn't appear to be a valid email address."
-                        )
-                )
+                ErrorMessage({
+                    title: "Invalid Email",
+                    message: "That doesn't appear to be a valid email address.",
+                })
             );
         }
 
@@ -113,18 +98,16 @@ const verifyModule: CommandType = {
 
         // email not in column, this user should not be verified
         if (emailIndex === -1) {
+            const registerLink = Config.verify.registration_url;
             return SafeReply(
                 intr,
-                EmbedToMessage(
-                    ResponseEmbed()
-                        .setTitle(":x: Verification Failed")
-                        .setDescription(
-                            `I couldn't verify that email address. If you haven't registered, you can ${hyperlink(
-                                "register here",
-                                Config.verify.registration_url
-                            )}.`
-                        )
-                )
+                ErrorMessage({
+                    title: "Verification Failed",
+                    message: [
+                        `I couldn't verify that email address. If you haven't registered,`,
+                        `you can ${hyperlink("register here", registerLink)}.`,
+                    ].join(" "),
+                })
             );
         }
 
@@ -147,7 +130,10 @@ const verifyModule: CommandType = {
 
             logger.info(`Verified "${PrettyUser(intr.user)}" with ${email}`);
             if (intr.user.id !== intr.guild?.ownerId) {
-                return SafeReply(intr, SuccessResponse("You are now verified."));
+                return SafeReply(
+                    intr,
+                    SuccessMessage({message: "You are now verified."})
+                );
             } else {
                 logger.warn(
                     `${PrettyUser(
@@ -156,15 +142,18 @@ const verifyModule: CommandType = {
                 );
                 return SafeReply(
                     intr,
-                    SuccessResponse(
-                        `You are now verified. As the guild owner, you'll need to change your ${"\
-                        "}nickname to your real name manually. Ask the Discord developers why, not me.`
-                    )
+                    SuccessMessage({
+                        message: [
+                            "You are now verified. As the guild owner, you'll need",
+                            "to change your nickname to your real name manually. Ask",
+                            "the Discord developers why, not me.",
+                        ].join(" "),
+                    })
                 );
             }
         } else {
             // verification failed
-            return SafeReply(intr, GenericError());
+            return SafeReply(intr, ErrorMessage());
         }
     },
 };
@@ -197,9 +186,7 @@ const DoVerifyUser = async (
             const insertion = InsertOne<VerifiedUserType>(
                 verifiedCollection,
                 verifiedUser,
-                {
-                    session,
-                }
+                {session}
             );
 
             // if there is no role to add in the config, just return the insert result

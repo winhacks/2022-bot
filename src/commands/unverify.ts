@@ -1,6 +1,5 @@
 import {SlashCommandBuilder} from "@discordjs/builders";
 import {CacheType, CommandInteraction, Guild, GuildMember} from "discord.js";
-import {P} from "pino";
 import {Config} from "../config";
 import {
     FindAndRemove,
@@ -10,13 +9,7 @@ import {
     WithTransaction,
 } from "../helpers/database";
 import {PrettyUser} from "../helpers/misc";
-import {
-    EmbedToMessage,
-    GenericError,
-    ResponseEmbed,
-    SafeReply,
-    SuccessResponse,
-} from "../helpers/responses";
+import {ErrorMessage, SafeReply, SuccessMessage} from "../helpers/responses";
 import {GiveUserRole, TakeUserRole} from "../helpers/userManagement";
 import {logger} from "../logger";
 import {CommandType, TeamType, VerifiedUserType} from "../types";
@@ -39,13 +32,10 @@ const unverifyModule: CommandType = {
         if (!existing) {
             return SafeReply(
                 intr,
-                EmbedToMessage(
-                    ResponseEmbed()
-                        .setTitle(":x: Not Verified")
-                        .setDescription(
-                            "You're not verified yet. Did you mean to use `/verify`?"
-                        )
-                )
+                ErrorMessage({
+                    title: "Not Verified",
+                    message: "You're not verified yet. Did you mean to use `/verify`?",
+                })
             );
         }
 
@@ -54,13 +44,11 @@ const unverifyModule: CommandType = {
         if (userTeam !== null) {
             return SafeReply(
                 intr,
-                EmbedToMessage(
-                    ResponseEmbed()
-                        .setTitle(":x: In Team")
-                        .setDescription(
-                            "You cannot unverify while in a team. Use `/team leave` first."
-                        )
-                )
+                ErrorMessage({
+                    title: "Already In A Team",
+                    message:
+                        "You cannot unverify while in a team. Use `/team leave` first.",
+                })
             );
         }
 
@@ -71,9 +59,12 @@ const unverifyModule: CommandType = {
         if (res) {
             intr.client.emit("userUnverified", member);
             logger.info(`Un-verified ${PrettyUser(intr.user)}`);
-            return SafeReply(intr, SuccessResponse("You're no longer verified."));
+            return SafeReply(
+                intr,
+                SuccessMessage({message: "You're no longer verified."})
+            );
         } else {
-            return SafeReply(intr, GenericError());
+            return SafeReply(intr, ErrorMessage());
         }
     },
 };

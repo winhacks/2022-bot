@@ -60,6 +60,7 @@
         max_team_size: 4,
         teams_per_category: 25, // each team creates 2 channels. Should be at MOST floor(DISCORD_CATEGORY_CHANNEL_LIMIT / 2)
         category_base_name: "Teams",
+        moderator_roles: ["Moderator"],
     },
 
     // displayName is the text that will be shown in the socials embed, link is the link it will point to

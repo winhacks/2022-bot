@@ -5,17 +5,14 @@ import {
     SlashCommandUserOption,
 } from "@discordjs/builders";
 import {CommandInteraction, CacheType} from "discord.js";
-import {GenericError, SafeReply} from "../helpers/responses";
+import {ErrorMessage, SafeReply} from "../helpers/responses";
 import {CommandType, TeamType} from "../types";
 import {CreateTeam} from "./team/create";
 import {TeamInfo} from "./team/info";
-import {RenameTeam} from "./team/rename";
 import {InviteToTeam} from "./team/invite";
 import {LeaveTeam} from "./team/leave";
 import {FindOne, teamCollection} from "../helpers/database";
 import {NotInTeamResponse} from "./team/team-shared";
-
-// FINISHED
 
 const teamModule: CommandType = {
     data: new SlashCommandBuilder() //
@@ -93,7 +90,7 @@ const teamModule: CommandType = {
         //     return RenameTeam(intr, team);
         // }
 
-        return SafeReply(intr, GenericError());
+        return SafeReply(intr, ErrorMessage());
     },
 };
 

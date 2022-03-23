@@ -2,6 +2,8 @@ import {
     CacheType,
     CommandInteraction,
     InteractionReplyOptions,
+    MessageActionRow,
+    MessageComponent,
     MessageComponentInteraction,
     MessageEmbed,
     MessageOptions,
@@ -64,43 +66,70 @@ export const ResponseEmbed = () => {
     return new MessageEmbed().setColor(Config.bot_info.color);
 };
 
-export const EmbedToMessage = (embed: MessageEmbed): MessageOptions => {
-    return {embeds: [embed]};
-};
-
 // SHARED RESPONSES -----------------------------------------------------------
+type BotEmbedOptions = Partial<{
+    emote: string;
+    title: string;
+    message: string;
+    ephemeral: boolean;
+    components: MessageActionRow[];
+}>;
 
-export const SuccessResponse = (message: string, ephemeral: boolean = false) => {
-    return {
-        ephemeral,
-        embeds: [
-            ResponseEmbed().setTitle(":partying_face: Success").setDescription(message),
-        ],
-    };
+/**
+ * A ready-made response representing an error. Default:
+ *
+ * @param options Customize the error message.
+ * @returns A `MessagePayload` containing an error message embed.
+ */
+export const ErrorMessage = (options?: BotEmbedOptions) => {
+    const defaultEmote = ":x:";
+    const defaultTitle = "Oops!";
+    const defaultMessage = "Something unexpected happened. Please try again shortly.";
+
+    const {emote, title, message, ephemeral, components} = options ?? {};
+    return BuildMessage(
+        emote ?? defaultEmote,
+        title ?? defaultTitle,
+        message ?? defaultMessage,
+        ephemeral ?? true,
+        components ?? []
+    );
 };
 
-export const GenericError = (ephemeral: boolean = false) => {
-    return {
-        ephemeral,
-        embeds: [
-            ResponseEmbed()
-                .setTitle(":x: Command Failed")
-                .setDescription(
-                    "Something unexpected happened while executing this command."
-                ),
-        ],
-    };
+/**
+ * A ready-made response representing a success.
+ * @param options Customize the error message.
+ * @returns A `MessagePayload` containing an error message embed.
+ */
+export const SuccessMessage = (options?: BotEmbedOptions) => {
+    const defaultEmote = ":partying_face:";
+    const defaultTitle = "Success!";
+    const defaultMessage = "";
+
+    const {emote, title, message, ephemeral, components} = options ?? {};
+    return BuildMessage(
+        emote ?? defaultEmote,
+        title ?? defaultTitle,
+        message ?? defaultMessage,
+        ephemeral ?? true,
+        components ?? []
+    );
 };
 
-export const NotVerifiedResponse = (ephemeral: boolean = false) => {
+const BuildMessage = (
+    emote: string,
+    title: string,
+    message: string,
+    ephemeral: boolean,
+    components: MessageActionRow[]
+) => {
     return {
-        ephemeral,
+        ephemeral: ephemeral,
+        components: components,
         embeds: [
-            ResponseEmbed()
-                .setTitle(":x: Not Verified")
-                .setDescription(
-                    "You must be a verified user to use this. You can verify with `/verify`."
-                ),
+            ResponseEmbed() //
+                .setTitle(`${emote} ${title}`)
+                .setDescription(message),
         ],
     };
 };

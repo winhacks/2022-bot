@@ -1,5 +1,5 @@
 import {SlashCommandBuilder} from "@discordjs/builders";
-import {CacheType, CommandInteraction, MessageEmbed} from "discord.js";
+import {CacheType, CommandInteraction} from "discord.js";
 import {Config} from "../config";
 import {ResponseEmbed, SafeReply} from "../helpers/responses";
 import {CommandType} from "../types";
