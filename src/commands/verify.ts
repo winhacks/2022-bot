@@ -111,49 +111,57 @@ const verifyModule: CommandType = {
             );
         }
 
-        // verify user
-        const member = intr.member as GuildMember;
-        const result = await DoVerifyUser(
-            intr.guild!,
-            member,
-            email,
-            await GetUserData(
-                Config.verify.target_sheet_id,
-                Config.verify.target_sheet,
-                1 + emailIndex
-            )
+        const userData = await GetUserData(
+            Config.verify.target_sheet_id,
+            Config.verify.target_sheet,
+            1 + emailIndex
         );
 
-        // verification went OK
-        if (result) {
-            intr.client.emit("userVerified", member);
+        // HOTFIX: Discord prevents nicknames over 32 characters, lets give a nice error for that
+        if (`${userData.firstName} ${userData.lastName}`.length > 32) {
+            return SafeReply(
+                intr,
+                ErrorMessage({
+                    message: [
+                        "Discord requires your name be 32 characters or less.",
+                        "Please re-register with a shorter version of your real",
+                        "name and try again.",
+                    ].join(" "),
+                })
+            );
+        }
 
-            logger.info(`Verified "${PrettyUser(intr.user)}" with ${email}`);
-            if (intr.user.id !== intr.guild?.ownerId) {
-                return SafeReply(
-                    intr,
-                    SuccessMessage({message: "You are now verified."})
-                );
-            } else {
-                logger.warn(
-                    `${PrettyUser(
-                        intr.user
-                    )} is the guild owner, asking them to update their nick manually.`
-                );
-                return SafeReply(
-                    intr,
-                    SuccessMessage({
-                        message: [
-                            "You are now verified. As the guild owner, you'll need",
-                            "to change your nickname to your real name manually. Ask",
-                            "the Discord developers why, not me.",
-                        ].join(" "),
-                    })
-                );
-            }
-        } else {
+        // verify user
+        const member = intr.member as GuildMember;
+        const result = await DoVerifyUser(intr.guild!, member, email, userData);
+
+        // verification went OK
+        if (!result) {
             // verification failed
             return SafeReply(intr, ErrorMessage());
+        }
+
+        intr.client.emit("userVerified", member);
+
+        logger.info(`Verified "${PrettyUser(intr.user)}" with ${email}`);
+        if (intr.user.id !== intr.guild?.ownerId) {
+            return SafeReply(intr, SuccessMessage({message: "You are now verified."}));
+        } else {
+            logger.warn(
+                `${PrettyUser(
+                    intr.user
+                )} is the guild owner, asking them to update their nick manually.`
+            );
+            return SafeReply(
+                intr,
+                SuccessMessage({
+                    message: [
+                        "You are now verified. As the guild owner, you'll need",
+                        "to change your nickname to your real name manually. Ask",
+                        "the Discord developers why, not me.",
+                    ].join(" "),
+                })
+            );
         }
     },
 };
