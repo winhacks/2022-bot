@@ -14,20 +14,26 @@ cp config.json.example config.json
 copy config.json.example config.json
 ```
 
-**Reminder:** do not under _any_ circumstances commit the `config.json` file to version control. It more than like contains secret information that you _really_ should keep secret.
+**Reminder:** do not under _any_ circumstances commit the `config.json` file to version control. It more than likely contains secret information that you _really_ should keep secret.
 
 ### Discord API Configuration
+
+The Discord API configuration has two "modes" or "groups": **production**, which is the application for the production bot, and **development**, which is the application for the bot "beta" or "in development".
+
+The `dev_mode` option is a boolean which selects between the **production** and **development** modes.
+
+Each mode has the same configuration:
 
 -   `app_id`: Your application ID. It is located on the "general information" tab of [your application's page](https://discord.com/developers/applications)
 -   `api_token`: Your bot's token. You can find it [here](https://discord.com/developers/applications), under your application > Bot > Token.
 -   `api_version`: usually `"9"`. The bot will probably break with any other version.
--   `bot_uid`: the "permission integer" for the bot. Typically `8` (Administrator).
+-   `bot_uid`: the "permission integer" for the bot. You can simply use `8` (Administrator).
 
 ### Google Sheets API Configuration
 
 To configure the bot to work with the Google Sheets API, you will need a Google Cloud Platform project with the Google Sheets API enabled and a Service Account.
 
-Once you have a service account, you want to add a JSON key for it. Copy the `private_key` and `client_email` fields into the respective fields in the bot config.
+Once you have a service account, you want to add a JSON key for it. Copy the `private_key` and `client_email` fields into the respective fields in the bot config. Newlines are important. You can use `\n` instead of actually breaking the string across lines, if you wish.
 
 `scopes` is an array of scopes you wish to have for the bot. Currently, all you need is `https://www.googleapis.com/auth/spreadsheets.readonly`.
 
@@ -48,34 +54,38 @@ Once you have a database, you need to add its details to the config. Most of the
 -   `certificate`: the PEM certificate to connect with. On the dashboard, click "Database Access". Select "Add New Database User". Change the Authentication Method to "Certificate". Enter a common name and turn on "Download certificate when user is added". Select an expiration date and finish filling out the form. The certificate will need access to the database named in `teams.database_name`. Finally, copy the certificate into the config file. Replace the newlines with `\n` in the config string. Make sure you include the `BEGIN CERTIFICATE` and `END CERTIFICATE` lines.
 -   `private_key`: This is the second half of the certificate you downloaded above. Once again, replace newlines with `\n` and include `BEGIN PRIVATE KEY` and `END PRIVATE KEY`.
 
-### Development Configuration
-
--   `dev_mode`: either `true` or `false`. When `true`, additional logging is enabled.
--   `dev_guild`: When `dev_mode` is `true` and this value is specified, global commands will be redirected to the specified guild instead. Guild commands register immediately, whereas global commands may take up to an hour to register.
--   `prod_guild`: the guild to register commands in when `dev_mode` is `false`.
-
 ### Command Specific Configuration
 
 #### Bot Info
 
 -   `name`: the name to appear on the embed.
--   `color` (optional): a hex color (with the `#` included) to accent the embed with.
+-   `color` (optional): a hexadecimal number (such as `0x14c3a2`) representing the color of all embeds the bot sends.
+-   `event_name`: the name of the event the bot is being used for. The bot will use this when referring to the event.
 -   `title_url` (optional): a URL the embed title should link to. Can be anything, such as the bot's GitHub/GitLab repository, or your event's homepage.
 -   `thumbnail` (optional): An external image link to place in the embed thumbnail.
 -   `description`: the text content to place in the embed description. Markdown-style inline links are supported.
 
 #### Verify
 
+-   `registration_url`: the URL to register for the event.
 -   `target_sheet_id`: the ID of the spreadsheet to use for verification. It will need to be shared with the service worker account. You can find the ID in the sheet URL: `https://docs.google.com/spreadsheets/d/**SHEET_ID_HERE**/edit`.
 -   `target_sheet`: the name of the sheet to use for verification data.
 -   `email_column`: the column in the `target_sheet` that contains emails to verify users against. Must be a single letter.
 -   `verified_role_name`: the display name of the role to give verified users.
+-   `channel_name`: the name of the channel which is used for verification. **Users are not restricted to using the command in this channel, but rather linked to it when they use `/apply`**.
 
 #### Teams
 
 -   `database_name`: the name of your MongoDB database
--   `collection_name`: the name of the database collection to store team information in
 -   `max_name_length`: the number of characters which is considered too long fora team name. Discord limits this to 100.
+-   `max_team_size`: the maximum number of members in a team.
+-   `teams_per_category`: the number of teams that can be in one channel category. Each team has 2 channels, and Discord doesn't allow more than 50 channels per category, so this should be no more than 25.
+-   `category_base_name`: the base name of a team category. The category number is appended to this. For example, base name `Teams` would become `Teams 1` when the first category is created.
+-   `moderator_roles`: the names of any additional roles that should be allowed to view all team channels.
+
+#### Socials
+
+The socials item is an array of key-value pairs (`displayName: link`) that tells the bot how to display and link to each social media account. For example: `socials: [{displayName: "Twitter", link: "https://twitter.com/YourOrganization"}]` would show as `Twitter` and link to `https://twitter.com/YourOrganization`.
 
 # Known Issues
 
