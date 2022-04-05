@@ -43,3 +43,11 @@ export interface CardInfoType {
     email?: string;
 }
 ```
+
+By default, the data is broken into 3 collections:
+
+-   `users`, which stores users and their verification info (`VerifiedUserType` and `CardInfoType`)
+-   `teams`, which stores the teams (`TeamType` and `InviteType`)
+-   `categories`, which stores the team categories (`CategoryType`)
+
+If the same database is used for the bot when it is in development mode, there will be copies of each of the above categories with `_development` appended to the name. They store the same kinds of information, but `_development` is only to be used by the bot in development and the non-`_development` categories are only to be used by the production bot.
