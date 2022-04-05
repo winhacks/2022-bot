@@ -87,7 +87,19 @@ Once you have a database, you need to add its details to the config. Most of the
 
 The socials item is an array of key-value pairs (`displayName: link`) that tells the bot how to display and link to each social media account. For example: `socials: [{displayName: "Twitter", link: "https://twitter.com/YourOrganization"}]` would show as `Twitter` and link to `https://twitter.com/YourOrganization`.
 
-# Known Issues
+## Running the Bot
+
+Now that you've configured everything, you need to start it up. We use Docker to make that very simple.
+
+Building and running is as simple as
+
+```sh
+docker build -t yourAwesomeBot .
+
+docker run yourAwesomeBot
+```
+
+## Known Issues
 
 This section lists any known issues with the bot that I have decided not to fix for the time being. Usually, these are events that I consider "unlikely".
 
