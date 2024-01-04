@@ -22,17 +22,6 @@ const readyEventModule: EventType = {
             activities: [{type: "WATCHING", name: message}],
         });
 
-        // NOTE: this should be removed, along with the command cache, after team channels are fixed
-        const guildId = Config.dev_mode
-            ? Config.development.guild
-            : Config.production.guild;
-
-        const magicId = CommandIDCache.get(guildId)!.get("magic")!;
-        (await client.guilds.fetch(guildId)).commands.permissions.add({
-            command: magicId,
-            permissions: [{id: "348840247339122688", type: "USER", permission: true}],
-        });
-
         logger.info("Bot is ready.");
     },
 };

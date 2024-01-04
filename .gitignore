@@ -5,6 +5,9 @@
 config.json
 config.json5
 
+# builds
+build/
+
 # Logs
 logs
 *.log

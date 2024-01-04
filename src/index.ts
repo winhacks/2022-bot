@@ -3,10 +3,10 @@ import {ClientType, CommandType, EventType} from "./types";
 import {Config, LoadConfig} from "./config";
 import {RegisterCommands} from "./helpers/commandManager";
 import {logger} from "./logger";
-import {readdirSync} from "fs";
+import {readdir} from "fs/promises";
 import {AuthenticateGoogleAPI} from "./helpers/sheetsAPI";
 import {AuthenticateMongo} from "./helpers/database";
-import {format as formatPath} from "path";
+import path from "path";
 
 let client: ClientType;
 
@@ -32,24 +32,22 @@ const start = async (): Promise<void> => {
     }) as ClientType;
     client.commands = new Collection<string, CommandType>();
 
-    await AuthenticateGoogleAPI();
-    logger.debug("Google: OK");
-    await AuthenticateMongo();
-    logger.debug("MongoDB: OK");
+    await AuthenticateGoogleAPI().then(() => logger.info("Google: OK"));
+    await AuthenticateMongo().then(() => logger.info("MongoDB: OK"));
 
     /*
      * Command loading
      */
-    const commandFiles = readdirSync("./src/commands") //
-        .filter((name) => name.endsWith(".ts"));
+    const commandDir = path.join(__dirname, "commands");
+    const commandModules = (await readdir(commandDir)) //
+        .filter((file) => file.endsWith(".ts") || file.endsWith(".js"))
+        .map((name) => name.slice(0, -path.extname(name).length))
+        .filter((name) => name !== "index")
+        .map((name) => require(path.resolve(commandDir, name)) as {command: CommandType});
 
-    logger.info(`Loading ${commandFiles.length} commands...`);
+    logger.info(`Loading ${commandModules.length} commands...`);
     const commandsToRegister = [];
-    for (const file of commandFiles) {
-        const filePath = formatPath({dir: "./commands/", name: file});
-        const {command} = (await import(filePath)) as {command: CommandType};
-
-        logger.debug(`Loaded ${file}`);
+    for (const {command} of commandModules) {
         client.commands.set(command.data.name, command);
         commandsToRegister.push(command);
     }
@@ -59,17 +57,17 @@ const start = async (): Promise<void> => {
     /*
      * Event loading
      */
-    const eventFiles = readdirSync("./src/events") //
-        .filter((name) => name.endsWith(".ts"));
+    const eventDir = path.join(__dirname, "events");
+    const eventModules = (await readdir(eventDir)) //
+        .filter((file) => file.endsWith(".ts") || file.endsWith(".js"))
+        .map((name) => name.slice(0, -path.extname(name).length))
+        .filter((name) => name !== "index")
+        .map((name) => require(path.resolve(eventDir, name)) as {event: EventType});
 
-    logger.info(`Loading ${commandFiles.length} commands...`);
-    for (const file of eventFiles) {
-        const filePath = formatPath({dir: "./events/", name: file});
-        const {event} = (await import(filePath)) as {event: EventType};
-
-        logger.debug(`Loaded ${file} (${event.eventName})`);
-
+    logger.info(`Loading ${eventModules.length} events...`);
+    for (const {event} of eventModules) {
         const eventCallback = (...args: any[]) => event.execute(client, ...args);
+
         if (event.once) {
             client.once(event.eventName, eventCallback);
         } else {

@@ -8,8 +8,10 @@
     "license": "MIT",
     "private": false,
     "scripts": {
-        "start": "ts-node ./src/index.ts",
-        "start-pretty": "ts-node ./src/index.ts | pino-pretty"
+        "dev": "ts-node ./src/index.ts",
+        "dev-pretty": "ts-node ./src/index.ts | pino-pretty",
+        "build": "tsc -outdir ./build",
+        "host": "node ./build/index.js"
     },
     "prettier": {
         "tabWidth": 4,

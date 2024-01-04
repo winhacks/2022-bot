@@ -1,17 +1,19 @@
-# node with version 16.13 on debian bullseye
-FROM node:16-bullseye
+FROM node:16
 
-# add typescript node
-RUN yarn global add ts-node
-
-# make WORKDIR for app
-RUN mkdir -p /app
 WORKDIR /app
 
-COPY package.json /app
-COPY yarn.lock /app
+# Dependency layer
+COPY ./package.json package.json
+COPY ./yarn.lock yarn.lock
 RUN yarn install
 
-COPY . /app
+# Build layer
+COPY ./src src
+COPY ./tsconfig.json tsconfig.json
+RUN yarn build
 
-CMD ["yarn", "start"]
+# Config layer
+COPY ./config.json5 config.json5
+
+# Execution layer
+CMD yarn host
